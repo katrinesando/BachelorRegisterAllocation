@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net7.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="Assembly\nasm\README.TXT" />
+        <Content Include="Assembly\nasm\linsimple.asm" />
+        <Content Include="Assembly\nasm\macbetter.asm" />
+        <Content Include="Assembly\nasm\macfac.asm" />
+        <Content Include="Assembly\nasm\macsimple.asm" />
+        <Content Include="Assembly\nasm\try.o" />
+        <Content Include="Assembly\nasm\winsimple.asm" />
+        <Content Include="Assembly\README.TXT" />
+        <Compile Include="Assembly\Absyn.fs" />
+        <Compile Include="Assembly\CLex.fs" />
+        <Content Include="Assembly\CLex.fsl" />
+        <Compile Include="Assembly\CPar.fs" />
+        <Compile Include="Assembly\CPar.fsi" />
+        <Content Include="Assembly\CPar.fsy" />
+        <ClCompile Include="Assembly\driver.c" />
+        <Content Include="Assembly\driver.o" />
+        <ClCompile Include="Assembly\ex0.c" />
+        <Content Include="Assembly\ex1.asm" />
+        <ClCompile Include="Assembly\ex1.c" />
+        <Content Include="Assembly\ex1.o" />
+        <ClCompile Include="Assembly\ex2.c" />
+        <ClCompile Include="Assembly\ex3.c" />
+        <ClCompile Include="Assembly\ex4.c" />
+        <ClCompile Include="Assembly\ex5.c" />
+        <Content Include="Assembly\ex6.asm" />
+        <ClCompile Include="Assembly\ex6.c" />
+        <ClCompile Include="Assembly\ex7.c" />
+        <ClCompile Include="Assembly\ex8.c" />
+        <ClCompile Include="Assembly\ex9.c" />
+        <ClCompile Include="Assembly\ex10.c" />
+        <Content Include="Assembly\ex11.asm" />
+        <ClCompile Include="Assembly\ex11.c" />
+        <Content Include="Assembly\ex11.o" />
+        <ClCompile Include="Assembly\ex11count.c" />
+        <ClCompile Include="Assembly\ex12.c" />
+        <ClCompile Include="Assembly\ex13.c" />
+        <ClCompile Include="Assembly\ex14.c" />
+        <ClCompile Include="Assembly\ex15.c" />
+        <ClCompile Include="Assembly\ex16.c" />
+        <ClCompile Include="Assembly\ex17.c" />
+        <ClCompile Include="Assembly\ex18.c" />
+        <ClCompile Include="Assembly\ex19.c" />
+        <ClCompile Include="Assembly\ex20.c" />
+        <ClCompile Include="Assembly\ex21.c" />
+        <ClCompile Include="Assembly\ex22.c" />
+        <ClCompile Include="Assembly\ex23.c" />
+        <ClCompile Include="Assembly\ex24.c" />
+        <ClCompile Include="Assembly\ex25.c" />
+        <Content Include="Assembly\FSharp.Core.dll" />
+        <Compile Include="Assembly\MicroCCAsm.fs" />
+        <Content Include="Assembly\microccasm.exe" />
+        <Compile Include="Assembly\Parse.fs" />
+        <Compile Include="Assembly\ParseAndComp.fs" />
+        <Content Include="Assembly\try1" />
+        <Compile Include="Assembly\X86.fs" />
+        <Compile Include="Assembly\X86Comp.fs" />
+    </ItemGroup>
+
+</Project>
