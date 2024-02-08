@@ -23,13 +23,13 @@
         <ClCompile Include="Assembly\driver.c" />
         <Content Include="Assembly\driver.o" />
         <Content Include="Assembly\FSharp.Core.dll" />
-        <Compile Include="Assembly\MicroCCAsm.fs" />
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\ParseAndComp.fs" />
         <Content Include="Assembly\try1" />
         <Compile Include="Assembly\X86.fs" />
         <Compile Include="Assembly\X86Comp.fs" />
+        <Compile Include="Assembly\MicroCCAsm.fs" />
         <ClCompile Include="Assembly\mcexamples\ex11count.c" />
         <ClCompile Include="Assembly\mcexamples\ex12.c" />
         <ClCompile Include="Assembly\mcexamples\ex13.c" />
