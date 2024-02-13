@@ -80,7 +80,7 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let labbegin = newLabel()
       let code = [Ins("mov eax, esp");
                   Ins("sub eax, 4");
-                  Ins2("sub", Reg Esp, Cst (4*i));
+                  Ins2("sub", Reg Esp, Cst (4*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
                   Ins1("push", Reg Eax)]
       (newEnv, code) 
     | _ -> 
@@ -117,7 +117,7 @@ let makeGlobalEnvs (topdecs : topdec list) : varEnv * funEnv * x86 list =
 (* ------------------------------------------------------------------- *)
 
 (* Compiling micro-C statements *)
-
+//Todo: Change all 32-bit registers to 64-bit (Reg) and check the bit shifting
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list = 
     match stmt with
     | If(e, stmt1, stmt2) -> 

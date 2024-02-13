@@ -44,9 +44,11 @@ type label = string
 
 type flabel = string
 
+//Todo: Change 32-bit to 64-bit -> include all registers
 type reg32 =
     | Eax | Ecx | Edx | Ebx | Esi | Edi | Esp | Ebp
 
+(* Operands of x86 instructions *)
 type rand =
     | Cst of int                        (* immediate dword n               *)
     | Reg of reg32                      (* register ebx                    *)
@@ -54,6 +56,7 @@ type rand =
     | EbpOff of int                     (* ebp offset indirect [ebp - n]   *)
     | Glovars                           (* stackbase [glovars]             *)
 
+(* Instructions represented by the x86 type *)
 type x86 =
     | Label of label                    (* symbolic label; pseudo-instruc. *)
     | FLabel of flabel * int            (* function label, arity; pseudo.  *)
@@ -64,6 +67,7 @@ type x86 =
     | PRINTI                            (* print [esp] as integer          *)
     | PRINTC                            (* print [esp] as character        *)
 
+//Todo: Change to include all 64-bit registers
 let fromReg reg =
     match reg with
     | Eax  -> "eax"
@@ -85,12 +89,13 @@ let operand rand : string =
 
 (* The five registers that can be used for temporary values in i386.
 Allowing EDX requires special handling across IMUL and IDIV *)
-
+//Todo: Change to include all the 64-bits registers
 let temporaries =
     [Ecx; Edx; Ebx; Esi; Edi]
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
+//Todo: Spilling might be happening here
 let getTemp pres : reg32 option =
     let rec aux available =
         match available with
@@ -105,6 +110,7 @@ let getTempFor (pres : reg32 list) : reg32 =
     | None     -> failwith "no more registers, expression too complex"
     | Some reg -> reg
 
+//Might run into problems with push and pop with 64-bit nasm (might be a bug that's fixed though)
 let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
 
 (* Preserve reg across code, on the stack if necessary *)
@@ -169,6 +175,7 @@ let code2x86asm (code : x86 list) : string list =
     List.iter (x86instr2int outinstr) code;
     List.rev (!bytecode)
 
+//Todo: change register names
 let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on MacOS)\n" +
                 "%macro call_prolog 0\n" +
                 "       mov ebx, esp            ; Save pre-alignment stack pointer\n" +
