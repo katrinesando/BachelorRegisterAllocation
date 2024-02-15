@@ -214,7 +214,25 @@ let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on 
 let beforeinit argc = asm_main + ":\n" +
                       "\tpush rbp\n" +
                       "\tmov rbp, rsp\n" +
-                      "\tpushad\n" +
+                      //"\tpushad\n" +
+                      //instead of pushad
+                      "\tpush rax\n" +
+                      "\tpush rbx\n" +
+                      "\tpush rcx\n" +
+                      "\tpush rdx\n" +
+                      "\tpush rsi\n" +
+                      "\tpush rdi\n" +
+                      "\tpush rbp\n" +
+                      "\tpush rsp\n" +
+                      "\tpush r8 \n" +
+                      "\tpush r9 \n" +
+                      "\tpush r10\n" +
+                      "\tpush r11\n" +
+                      "\tpush r12\n" +
+                      "\tpush r13\n" +
+                      "\tpush r14\n" +
+                      "\tpush r15\n" +
+                      
                       "\tmov qword [glovars], rsp\n" +
                       "\tsub qword [glovars], 8\n" + //4 originalt
                       "\t;check arg count:\n" +
@@ -240,7 +258,25 @@ let pushargs = "\t;set up command line arguments on stack:\n" +
 let popargs =   "\t;clean up stuff pushed onto stack:\n" +
                 "\tmov rsp, qword [glovars]\n" +
                 "\tadd rsp, 4\n" + //4 originalt
-                "\tpopad\n" +
+                //"\tpopad\n" +
+                //well instead popad
+                "\tpop rax\n" +
+                "\tpop rbx\n" +
+                "\tpop rcx\n" +
+                "\tpop rdx\n" +
+                "\tpop rsi\n" +
+                "\tpop rdi\n" +
+                "\tpop rbp\n" +
+                "\tpop rsp\n" +
+                "\tpop r8 \n" +
+                "\tpop r9 \n" +
+                "\tpop r10\n" +
+                "\tpop r11\n" +
+                "\tpop r12\n" +
+                "\tpop r13\n" +
+                "\tpop r14\n" +
+                "\tpop r15\n" +
+                
                 "\tmov rsp, rbp\n" +
                 "\tpop rbp\n" +
                 "\tret\n"
