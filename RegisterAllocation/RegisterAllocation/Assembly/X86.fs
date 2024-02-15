@@ -48,55 +48,66 @@ type flabel = string
 type reg32 =
     | Eax | Ecx | Edx | Ebx | Esi | Edi | Esp | Ebp
 
+//General purpose registers for 64-bit
+type reg64 =
+    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
+
 (* Operands of x86 instructions *)
 type rand =
     | Cst of int                        (* immediate dword n               *)
-    | Reg of reg32                      (* register ebx                    *)
-    | Ind of reg32                      (* register indirect [ebx]         *)
-    | EbpOff of int                     (* ebp offset indirect [ebp - n]   *)
+    | Reg of reg64                      (* register rbx                    *)
+    | Ind of reg64                      (* register indirect [rbx]         *)
+    | RbpOff of int                     (* rbp offset indirect [rbp - n]   *)
     | Glovars                           (* stackbase [glovars]             *)
 
 (* Instructions represented by the x86 type *)
 type x86 =
     | Label of label                    (* symbolic label; pseudo-instruc. *)
     | FLabel of flabel * int            (* function label, arity; pseudo.  *)
-    | Ins of string                     (* eg. sub esp, 4                  *)
-    | Ins1 of string * rand             (* eg. push eax                    *)
-    | Ins2 of string * rand * rand      (* eg. add eax, [ebp - 32]         *)
+    | Ins of string                     (* eg. sub rsp, 4                  *)
+    | Ins1 of string * rand             (* eg. push rax                    *)
+    | Ins2 of string * rand * rand      (* eg. add rax, [rbp - 32]         *)
     | Jump of string * label            (* eg. jz near lab                 *)
-    | PRINTI                            (* print [esp] as integer          *)
-    | PRINTC                            (* print [esp] as character        *)
+    | PRINTI                            (* print [rsp] as integer          *)
+    | PRINTC                            (* print [rsp] as character        *)
 
 //Todo: Change to include all 64-bit registers
 let fromReg reg =
     match reg with
-    | Eax  -> "eax"
-    | Ecx  -> "ecx"
-    | Edx  -> "edx"
-    | Ebx  -> "ebx"
-    | Esi  -> "esi"
-    | Edi  -> "edi"
-    | Esp  -> "esp"
-    | Ebp  -> "ebp"
+    | Rax  -> "rax"
+    | Rcx  -> "rcx"
+    | Rdx  -> "rdx"
+    | Rbx  -> "rbx"
+    | Rsi  -> "rsi"
+    | Rdi  -> "rdi"
+    | Rsp  -> "rsp"
+    | Rbp  -> "rbp"
+    | R8   -> "r8"
+    | R9   -> "r9"
+    | R10  -> "r10"
+    | R11  -> "r11"
+    | R12  -> "r12"
+    | R13  -> "r13"
+    | R14  -> "r14"
+    | R15  -> "r15"
 
 let operand rand : string =
     match rand with
         | Cst n    -> string n
         | Reg reg  -> fromReg reg
         | Ind reg  -> "[" + fromReg reg + "]"
-        | EbpOff n -> "[ebp - " + string n + "]"
+        | RbpOff n -> "[rbp - " + string n + "]"
         | Glovars  -> "[glovars]"
 
-(* The five registers that can be used for temporary values in i386.
-Allowing EDX requires special handling across IMUL and IDIV *)
-//Todo: Change to include all the 64-bits registers
+(* The 13 registers that can be used for temporary values in i386.
+Allowing RDX requires special handling across IMUL and IDIV *)
 let temporaries =
-    [Ecx; Edx; Ebx; Esi; Edi]
+    [Rcx; Rdx; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
 //Todo: Spilling might be happening here
-let getTemp pres : reg32 option =
+let getTemp pres : reg64 option =
     let rec aux available =
         match available with
             | []          -> None
@@ -105,7 +116,7 @@ let getTemp pres : reg32 option =
 
 (* Get temporary register not in pres; throw exception if none available *)
 
-let getTempFor (pres : reg32 list) : reg32 =
+let getTempFor (pres : reg64 list) : reg64 =
     match getTemp pres with
     | None     -> failwith "no more registers, expression too complex"
     | Some reg -> reg
@@ -142,23 +153,23 @@ let x86instr2int out instr =
     match instr with
       | Label lab -> outlab lab
       | FLabel (lab, n)  -> out (lab + ":\t\t\t\t;start set up frame\n" +
-                                 "\tpop eax\t\t\t; retaddr\n" +
-                                 "\tpop ebx\t\t\t; oldbp\n" +
-                                 "\tsub esp, 8\n" +
-                                 "\tmov esi, esp\n" +
-                                 "\tmov ebp, esp\n" +
-                                 "\tadd ebp, " + string(4*n) + "\t\t; 4*arity\n" +
+                                 "\tpop rax\t\t\t; retaddr\n" +
+                                 "\tpop rbx\t\t\t; oldbp\n" +
+                                 "\tsub rsp, 16\n" + //8 originalt
+                                 "\tmov rsi, rsp\n" +
+                                 "\tmov rbp, rsp\n" +
+                                 "\tadd rbp, " + string(4*n) + "\t\t; 4*arity\n" + //4 originalt
                                  lab + "_pro_1:\t\t\t; slide arguments\n" +
-                                 "\tcmp ebp, esi\n" +
+                                 "\tcmp rbp, rsi\n" +
                                  "\tjz " + lab + "_pro_2\n" +
-                                 "\tmov ecx, [esi+8]\n" +
-                                 "\tmov [esi], ecx\n" +
-                                 "\tadd esi, 4\n" +
+                                 "\tmov rcx, [rsi+16]\n" + //8 originalt
+                                 "\tmov [rsi], rcx\n" +
+                                 "\tadd rsi, 8\n" + //4 originalt
                                  "\tjmp " + lab + "_pro_1\n" +
                                  lab + "_pro_2:\n" +
-                                 "\tsub ebp, 4\n" +
-                                 "\tmov [ebp+8], eax\n" +
-                                 "\tmov [ebp+4], ebx\n" +
+                                 "\tsub rbp, 8\n" + //4 originalt
+                                 "\tmov [rbp+16], rax\n" + //8 originalt
+                                 "\tmov [rbp+8], rbx\n" + //4 originalt
                                  lab + "_tc:\t;end set up frame\n")
       | Ins ins               -> outins ins
       | Ins1 (ins, op1)       -> outins (ins + " " + operand op1)
@@ -178,18 +189,18 @@ let code2x86asm (code : x86 list) : string list =
 //Todo: change register names
 let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on MacOS)\n" +
                 "%macro call_prolog 0\n" +
-                "       mov ebx, esp            ; Save pre-alignment stack pointer\n" +
-                "       pop eax                 ; Pop the argument\n" +
-                "       and esp, 0xFFFFFFF0     ; Align esp to 16 byte multiple\n" +
-                "       sub esp, 8              ; Pad 8 bytes\n" +
-                "       push ebx                ; Push old stack top\n" +
-                "       push eax                ; Push argument again\n" +
+                "       mov rbx,rsp            ; Save pre-alignment stack pointer\n" +
+                "       pop rax                 ; Pop the argument\n" +
+                "       and rsp, 0xFFFFFFFFFFFFFFF0   ; Align rsp to 16 byte multiple\n" + //0xFFFFFFF0 originalt
+                "       sub rsp, 16             ; Pad 16 bytes\n" + //8 originalt - hvorfor paddes der helt præcist? den gør plads lige nu til nyt variables, men kan det også bare være 8?
+                "       push rbx                ; Push old stack top\n" +
+                "       push rax                ; Push argument again\n" +
                 "%endmacro\n" +
                 "\n" +
                 "%macro call_epilog 0\n" +
-                "       add esp, 4              ; Pop argument\n" +
-                "       pop ebx                 ; Get saved pre-alignment stack pointer\n" +
-                "       mov esp, ebx            ; Restore stack top to pre-alignment state\n" +
+                "       add rsp, 8              ; Pop argument\n" + //4 originalt
+                "       pop rbx                 ; Get saved pre-alignment stack pointer\n" +
+                "       mov rsp, rbx            ; Restore stack top to pre-alignment state\n" +
                 "%endmacro\n" +
                 "\n" +
                 "EXTERN " + printi + "\n" +
@@ -201,35 +212,35 @@ let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on 
                 "section .text\n"
 
 let beforeinit argc = asm_main + ":\n" +
-                      "\tpush ebp\n" +
-                      "\tmov ebp, esp\n" +
+                      "\tpush rbp\n" +
+                      "\tmov rbp, rsp\n" +
                       "\tpushad\n" +
-                      "\tmov dword [glovars], esp\n" +
-                      "\tsub dword [glovars], 4\n" +
+                      "\tmov qword [glovars], rsp\n" +
+                      "\tsub qword [glovars], 8\n" + //4 originalt
                       "\t;check arg count:\n" +
-                      "\tpush dword [ebp+8]\n" +
-                      "\tpush dword " + string(argc) + "\n" +
+                      "\tpush qword [rbp+16]\n" + //8 originalt
+                      "\tpush qword " + string(argc) + "\n" +
                       "\tcall " + checkargc + "\n" +
-                      "\tadd esp, 8\n" +
+                      "\tadd rsp, 16\n" + //8 originalt
                       "\t; allocate globals:\n"
 
 let pushargs = "\t;set up command line arguments on stack:\n" +
-                "\tmov ecx, [ebp+8]\n" +
-                "\tmov esi, [ebp+12]\n" +
+                "\tmov rcx, [rbp+8]\n" + //8 originalt
+                "\tmov rsi, [rbp+12]\n" + //12 originalt
                 "_args_next:\n" +
-                "\tcmp ecx, 0\n" +
+                "\tcmp rcx, 0\n" + 
                 "\tjz _args_end\n" +
-                "\tpush dword [esi]\n" +
-                "\tadd esi, 4\n" +
-                "\tsub ecx, 1\n" +
-                "\tjmp _args_next               ;repeat until --ecx == 0\n" +
+                "\tpush qword [rsi]\n" +
+                "\tadd rsi, 4\n" + //4 originalt - this means the array can only hold ints
+                "\tsub rcx, 1\n" +
+                "\tjmp _args_next               ;repeat until --rcx == 0\n" +
                 "_args_end:\n" +
-                "\tsub ebp, 4                   ; make ebp point to first arg\n"
+                "\tsub rbp, 4                   ; make rbp point to first arg\n" //4 originalt
 
 let popargs =   "\t;clean up stuff pushed onto stack:\n" +
-                "\tmov esp, dword [glovars]\n" +
-                "\tadd esp, 4\n" +
+                "\tmov rsp, qword [glovars]\n" +
+                "\tadd rsp, 4\n" + //4 originalt
                 "\tpopad\n" +
-                "\tmov esp, ebp\n" +
-                "\tpop ebp\n" +
+                "\tmov rsp, rbp\n" +
+                "\tpop rbp\n" +
                 "\tret\n"

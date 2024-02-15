@@ -78,14 +78,14 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let newEnv = ((x, (kind (fdepth+i), typ)) :: env, fdepth+i+1)
       let labtest = newLabel()
       let labbegin = newLabel()
-      let code = [Ins("mov eax, esp");
-                  Ins("sub eax, 4");
-                  Ins2("sub", Reg Esp, Cst (4*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
-                  Ins1("push", Reg Eax)]
+      let code = [Ins("mov rax, rsp");
+                  Ins("sub rax, 4"); //4 originalt - this means the array can only hold ints
+                  Ins2("sub", Reg Rsp, Cst (4*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
+                  Ins1("push", Reg Rax)]
       (newEnv, code) 
     | _ -> 
       let newEnv = ((x, (kind fdepth, typ)) :: env, fdepth+1)
-      let code = [Ins "sub esp, 4"]
+      let code = [Ins "sub rsp, 4"] //4 originalt
       (newEnv, code)
 
 (* Bind declared parameters in env: *)
@@ -123,8 +123,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
     | If(e, stmt1, stmt2) -> 
       let labelse = newLabel()
       let labend  = newLabel()
-      cExpr e varEnv funEnv Ebx []
-      @ [Ins2("cmp", Reg Ebx, Cst 0);
+      cExpr e varEnv funEnv Rbx []
+      @ [Ins2("cmp", Reg Rbx, Cst 0);
          Jump("jz", labelse)] 
       @ cStmt stmt1 varEnv funEnv
       @ [Jump("jmp", labend)]
@@ -135,11 +135,11 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
       let labtest  = newLabel()
       [Jump("jmp", labtest);
        Label labbegin] @ cStmt body varEnv funEnv
-      @ [Label labtest] @ cExpr e varEnv funEnv Ebx []
-      @ [Ins2("cmp", Reg Ebx, Cst 0);
+      @ [Label labtest] @ cExpr e varEnv funEnv Rbx []
+      @ [Ins2("cmp", Reg Rbx, Cst 0);
          Jump("jnz", labbegin)]
     | Expr e -> 
-      cExpr e varEnv funEnv Ebx []
+      cExpr e varEnv funEnv Rbx []
     | Block stmts -> 
       let rec loop stmts varEnv =
           match stmts with 
@@ -149,15 +149,15 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
             let (fdepthr, coder) = loop sr varEnv1 
             (fdepthr, code1 @ coder)
       let (fdepthend, code) = loop stmts varEnv
-      code @ [Ins2("sub", Reg Esp, Cst (4 * (snd varEnv - fdepthend)))]
+      code @ [Ins2("sub", Reg Rsp, Cst (4 * (snd varEnv - fdepthend)))]
     | Return None ->
-        [Ins2("add", Reg Esp, Cst (4 * snd varEnv));
-         Ins("pop ebp");
+        [Ins2("add", Reg Rsp, Cst (4 * snd varEnv));
+         Ins("pop rbp");
          Ins("ret")]
     | Return (Some e) -> 
-    cExpr e varEnv funEnv Ebx [] 
-    @ [Ins2("add", Reg Esp, Cst (4 * snd varEnv));
-       Ins("pop ebp");
+    cExpr e varEnv funEnv Rbx [] 
+    @ [Ins2("add", Reg Rsp, Cst (4 * snd varEnv));
+       Ins("pop rbp");
        Ins("ret")]
 
 
@@ -180,7 +180,7 @@ and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) : varEnv * x86 list
    leave the registers in pres unchanged, and leave the stack depth unchanged.
 *)
 
-and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg32) (pres : reg32 list) : x86 list = 
+and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : reg64 list) : x86 list = 
     match e with
     | Access acc     ->
         cAccess acc varEnv funEnv tr pres @ [Ins2("mov", Reg tr, Ind tr)] 
@@ -196,15 +196,15 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg32) (pres : re
     | Prim1(ope, e1) ->
         cExpr e1 varEnv funEnv tr pres
         @ (match ope with
-           | "!"      -> [Ins("xor eax, eax");
-                          Ins2("cmp", Reg tr, Reg Eax);
+           | "!"      -> [Ins("xor rax, rax");
+                          Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
-                          Ins2("mov", Reg tr, Reg Eax)]
-           | "printi" -> [Ins1("push", Reg tr); PRINTI; Ins("add esp, 4")]
-           | "printc" -> [Ins1("push", Reg tr); PRINTC; Ins("add esp, 4")]
+                          Ins2("mov", Reg tr, Reg Rax)]
+           | "printi" -> [Ins1("push", Reg tr); PRINTI; Ins("add rsp, 4")]
+           | "printc" -> [Ins1("push", Reg tr); PRINTC; Ins("add rsp, 4")]
            | _        -> raise (Failure "unknown primitive 1"))
     | Prim2(ope, e1, e2) ->
-        let avoid = if ope = "/" || ope = "%" then [Edx; tr] else [tr]
+        let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
         in
         cExpr e1 varEnv funEnv tr pres
         @ let tr' = getTempFor (avoid @ pres)
@@ -212,20 +212,20 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg32) (pres : re
              @ match ope with
                | "+"   -> [Ins2("add", Reg tr, Reg tr')]
                | "-"   -> [Ins2("sub", Reg tr, Reg tr')]
-               | "*"   -> [Ins2("mov", Reg Eax, Reg tr)]
-                          @ preserve Edx (tr :: pres)
-                            [Ins1("imul", Reg tr')] // Invalidates EDX
-                          @ [Ins2("mov", Reg tr, Reg Eax)]
-               | "/"   -> [Ins2("mov", Reg Eax, Reg tr)]
-                          @ preserve Edx (tr :: pres) 
-                            [Ins("cdq");            // Invalidates EDX
-                             Ins1("idiv", Reg tr')] // Invalidates EAX EDX
-                          @ [Ins2("mov", Reg tr, Reg Eax)]
-               | "%"   -> [Ins2("mov", Reg Eax, Reg tr)]
-                          @ preserve Edx (tr :: pres) 
-                            [Ins("cdq");            // Invalidates EDX
-                             Ins1("idiv", Reg tr'); // Invalidates EAX EDX
-                             Ins2("mov", Reg tr, Reg Edx)] 
+               | "*"   -> [Ins2("mov", Reg Rax, Reg tr)]
+                          @ preserve Rdx (tr :: pres)
+                            [Ins1("imul", Reg tr')] // Invalidates Rdx
+                          @ [Ins2("mov", Reg tr, Reg Rax)]
+               | "/"   -> [Ins2("mov", Reg Rax, Reg tr)]
+                          @ preserve Rdx (tr :: pres) 
+                            [Ins("cdq");            // Invalidates Rdx
+                             Ins1("idiv", Reg tr')] // Invalidates Rax Rdx
+                          @ [Ins2("mov", Reg tr, Reg Rax)]
+               | "%"   -> [Ins2("mov", Reg Rax, Reg tr)]
+                          @ preserve Rdx (tr :: pres) 
+                            [Ins("cdq");            // Invalidates Rdx
+                             Ins1("idiv", Reg tr'); // Invalidates Rax Rdx
+                             Ins2("mov", Reg tr, Reg Rdx)] 
                | "==" | "!=" | "<" | ">=" | ">" | "<="
                   -> let setcompbits = (match ope with
                                         | "==" -> "sete al"
@@ -235,10 +235,10 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg32) (pres : re
                                         | ">"  -> "setg al"
                                         | "<=" -> "setle al"
                                         | _    -> failwith "internal error")
-                     [Ins("xor eax, eax");
+                     [Ins("xor rax, rax");
                       Ins2("cmp", Reg tr, Reg tr');
                       Ins(setcompbits);
-                      Ins2("mov", Reg tr, Reg Eax)]
+                      Ins2("mov", Reg tr, Reg Rax)]
                | _     -> raise (Failure "unknown primitive 2")
     | Andalso(e1, e2) ->
         let labend = newLabel()
@@ -258,13 +258,13 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg32) (pres : re
 
 (* Generate code to access variable, dereference pointer or index array: *)
 
-and cAccess access varEnv funEnv (tr : reg32) (pres : reg32 list) : x86 list =
+and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
     match access with 
     | AccVar x ->
       match lookup (fst varEnv) x with
       | Glovar addr, _ -> [Ins2("mov", Reg tr, Glovars);
                            Ins2("sub", Reg tr, Cst (4*addr))]
-      | Locvar addr, _ -> [Ins2("lea", Reg tr, EbpOff (4*addr))]
+      | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (4*addr))]
     | AccDeref e -> cExpr e varEnv funEnv tr pres
     | AccIndex(acc, idx) ->
       cAccess acc varEnv funEnv tr pres
@@ -286,9 +286,9 @@ and callfun f es varEnv funEnv tr pres : x86 list =
     let argc = List.length es
     if argc = List.length paramdecs then
         preserveAll pres (cExprs es varEnv funEnv tr
-                          @ [Ins("push ebp");
+                          @ [Ins("push rbp");
                              Jump("call", labf);
-                             Ins2("mov", Reg tr, Reg Ebx)])
+                             Ins2("mov", Reg tr, Reg Rbx)])
     else
         raise (Failure (f + ": parameter/argument mismatch"))
 
@@ -302,8 +302,8 @@ let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list =
         let (envf, fdepthf) = bindParams paras (globalVarEnv, 0)
         let code = cStmt body (envf, fdepthf) funEnv
         let arity = List.length paras
-        [FLabel (labf, arity)] @ code @ [Ins2("add", Reg Esp, Cst (4*arity));
-                                         Ins("pop ebp");
+        [FLabel (labf, arity)] @ code @ [Ins2("add", Reg Rsp, Cst (4*arity));
+                                         Ins("pop rbp");
                                          Ins("ret")]
     let functions = 
         List.choose (function 
@@ -315,7 +315,7 @@ let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list =
     let argc = List.length mainparams
     (globalInit,
      argc, 
-     [Ins("push ebp"); Jump("call", mainlab)],
+     [Ins("push rbp"); Jump("call", mainlab)],
      List.concat functions)
 
 (* Compile a complete micro-C and write the resulting assembly code
