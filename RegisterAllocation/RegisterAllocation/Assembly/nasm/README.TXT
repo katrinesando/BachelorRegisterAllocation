@@ -26,6 +26,8 @@ A3. To assemble and run assembly program winsimple.asm on Windows:
     Assemble file winsimple.asm for Windows (as a 32-bit target):
 
       nasm -fwin32 winsimple.asm
+      
+     nasm -fwin64 winsimple.asm
 
     Then link the object file with the C library for the 32-bit x86
     (i386) architecture, producing an executable file called "try":
