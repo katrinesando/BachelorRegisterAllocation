@@ -15,10 +15,12 @@ B. To compile the nasm-generating micro-C compiler and use it.
    
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
-   fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
-
+   dotnet fsi -r [path]/FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
+   dotnet fsi -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
+    
    open ParseAndComp;;
    compileToFile (fromFile "ex1.c") "ex1.asm";;
+   compileToFile (fromFile "mcexamples/ex1.c") "test64.asm";;
    compileToFile (fromFile "ex6.c") "ex6.asm";;
    compileToFile (fromFile "ex11.c") "ex11.asm";;
 
@@ -48,16 +50,26 @@ MacOS: NOT SUPPORTED
 Linux:
 
    gcc -m32 -c driver.c		
-   nasm -f elf ex11.asm
-   gcc -m32 driver.o ex11.o -o try11
+   gcc -m64 -c driver.c		
+   nasm -f elf64 test64.asm
+   gcc -m64 driver.o test64.o -o try11
    ./try11 8
-
+    
    No underscores (_) in external function names.
 
    Stack alignment constraints are not needed, but harmless.
 
 ------
+Linux WSL
+   Remember to set isLinux to true in X86.fs
+   gcc -m64 -c driver.c		
+   nasm -f elf64 test64.asm
+   gcc -no-pie -m64 driver.o test64.o -o try2
+   ./try11 8
 
+
+
+------
 Windows (Windows 10, Command Prompt for VS 2017):
 
    cl -c driver.c
