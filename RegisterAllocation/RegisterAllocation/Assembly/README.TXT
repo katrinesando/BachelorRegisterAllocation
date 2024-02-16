@@ -18,7 +18,7 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
 
    open ParseAndComp;;
-   compileToFile (fromFile "ex1.c") "ex1.asm";;
+   compileToFile (fromFile "mcexamples\ex1.c") "ex1.asm";;
    compileToFile (fromFile "ex6.c") "ex6.asm";;
    compileToFile (fromFile "ex11.c") "ex11.asm";;
 

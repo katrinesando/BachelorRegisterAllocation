@@ -32,7 +32,7 @@ module X86
 (* The MacOS and Windows linkers expect an underscore (_) before
    external and global names, whereas the Linux/gcc linker does not. *)
 
-let isLinux = false
+let isLinux = true
 let prefix = if isLinux then "" else "_"
 
 let printi    = prefix + "printi"
