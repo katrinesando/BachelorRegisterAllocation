@@ -245,27 +245,11 @@ let beforeinit argc =
     asm_main + ":\n" +
     "\tpush rbp ;old bp\n" +
     "\tmov rbp, rsp ;new bp\n" +
-    "\tpush rax\n" +
-    "\tpush rbx\n" +
-    "\tpush rcx\n" +
-    "\tpush rdx\n" +
-    "\tpush rsi\n" +
-    "\tpush rdi\n" +
-    "\tpush rbp\n" +
-    "\tpush rsp\n" +
-    "\tpush r8 \n" +
-    "\tpush r9 \n" +
-    "\tpush r10\n" +
-    "\tpush r11\n" +
-    "\tpush r12\n" +
-    "\tpush r13\n" +
-    "\tpush r14\n" +
-    "\tpush r15\n" +
     "\tmov qword [glovars], rsp\n" +
     "\tsub qword [glovars], 8\n" + //4 originalt
     "\t;check arg count:\n" +
     "\tpush qword [rbp+16]\n" + //8 originalt
-    "\tadd rsp, 8\n" + //aligns stackpointer to 16-byte boundary
+    "\tpush rsi\n" + //aligns stackpointer to 16-byte boundary
     "\tmov rsi, rdi\n" +
     "\tmov rdi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
@@ -288,22 +272,6 @@ let pushargs = "\t;set up command line arguments on stack:\n" +
 let popargs =   "\t;clean up stuff pushed onto stack:\n" +
                 "\tmov rsp, qword [glovars]\n" +
                 "\tadd rsp, 8\n" + //4 originalt
-                "\tpop rax\n" +
-                "\tpop rbx\n" +
-                "\tpop rcx\n" +
-                "\tpop rdx\n" +
-                "\tpop rsi\n" +
-                "\tpop rdi\n" +
-                "\tpop rbp\n" +
-                "\tpop rsp\n" +
-                "\tpop r8 \n" +
-                "\tpop r9 \n" +
-                "\tpop r10\n" +
-                "\tpop r11\n" +
-                "\tpop r12\n" +
-                "\tpop r13\n" +
-                "\tpop r14\n" +
-                "\tpop r15\n" +
                 "\tmov rsp, rbp\n" +
                 "\tpop rbp\n" +
                 "\tret\n"

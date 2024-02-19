@@ -21,7 +21,6 @@
         <Compile Include="Assembly\CPar.fsi" />
         <Content Include="Assembly\CPar.fsy" />
         <ClCompile Include="Assembly\driver.c" />
-        <Content Include="Assembly\driver.o" />
         <Content Include="Assembly\FSharp.Core.dll" />
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\Parse.fs" />
