@@ -25,6 +25,7 @@
         <Content Include="Assembly\FSharp.Core.dll" />
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\Parse.fs" />
+        <Compile Include="Assembly\X64.fs" />
         <Content Include="Assembly\try1" />
         <Compile Include="Assembly\X86.fs" />
         <Compile Include="Assembly\X86Comp.fs" />
@@ -62,6 +63,8 @@
         <Content Include="Assembly\mcexamples\ex6.asm" />
         <Content Include="Assembly\mcexamples\ex11.asm" />
         <Content Include="Assembly\mcexamples\ex11.o" />
+        <Content Include="Assembly\proglog.asm" />
+        <Compile Include="X64Comp.fs" />
     </ItemGroup>
 
 </Project>

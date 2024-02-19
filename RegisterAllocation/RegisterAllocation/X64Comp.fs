@@ -1,3 +1,4 @@
+﻿module X64Comp
 (* File Assembly/X86Comp.sml
 
    Micro-C compiler that generate an x86 assembler-oriented bytecode.
@@ -34,11 +35,9 @@
     Programming Language Concepts, second edition, 2017.
 *)
 
-module X86Comp
-
 open System.IO
 open Absyn
-open X86
+open X64
 
 (* ------------------------------------------------------------------- *)
 
@@ -200,8 +199,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> [Ins1("push", Reg tr); PRINTI; Ins("add rsp, 4")]
-           | "printc" -> [Ins1("push", Reg tr); PRINTC; Ins("add rsp, 4")]
+           | "printi" -> [Ins1("push", Reg tr); Jump("call", "printi"); Ins("add rsp, 4")]
+           | "printc" -> [Ins1("push", Reg tr); Jump("call", "printc"); Ins("add rsp, 4")]
            | _        -> raise (Failure "unknown primitive 1"))
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
@@ -263,8 +262,8 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
     | AccVar x ->
       match lookup (fst varEnv) x with
       | Glovar addr, _ -> [Ins2("mov", Reg tr, Glovars);
-                           Ins2("sub", Reg tr, Cst (4*addr))]
-      | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (4*addr))]
+                           Ins2("sub", Reg tr, Cst (8*addr))]
+      | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (8*addr))]
     | AccDeref e -> cExpr e varEnv funEnv tr pres
     | AccIndex(acc, idx) ->
       cAccess acc varEnv funEnv tr pres
@@ -337,3 +336,4 @@ let compileToFile program fname =
     functions 
 
 (* Example programs are found in the files ex1.c, ex2.c, etc *)
+
