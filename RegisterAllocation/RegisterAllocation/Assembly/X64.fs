@@ -266,7 +266,8 @@ let beforeinit argc =
     "\t;check arg count:\n" +
     "\tpush qword [rbp+16]\n" + //8 originalt
     "\tadd rsp, 8\n" + //aligns stackpointer to 16-byte boundary
-    "\tmov rsi, " + string(argc)+"\n" +
+    "\tmov rsi, rdi\n" +
+    "\tmov rdi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
     "\tadd rsp, 16\n" + //8 originalt
     "\t; allocate globals:\n"

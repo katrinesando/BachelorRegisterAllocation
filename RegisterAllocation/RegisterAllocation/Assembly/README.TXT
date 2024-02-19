@@ -50,7 +50,7 @@ Linux:
    gcc -m64 -c driver.c		
    nasm -f elf ex11.asm
    nasm -f elf64 print_num.asm
-   gcc -m64 driver.o print_num.o -o tryPrint
+   gcc -m64 driver.o print_num.o -o print_num
    ./try11 8
 
    No underscores (_) in external function names.
