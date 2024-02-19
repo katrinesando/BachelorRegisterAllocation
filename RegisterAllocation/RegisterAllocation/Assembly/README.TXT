@@ -18,7 +18,7 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
 
    open ParseAndComp;;
-   compileToFile (fromFile "mcexamples\ex1.c") "ex1.asm";;
+   compileToFile (fromFile "mcexamples\print_num.c") "print_num.asm";;
    compileToFile (fromFile "ex6.c") "ex6.asm";;
    compileToFile (fromFile "ex11.c") "ex11.asm";;
 
@@ -47,9 +47,10 @@ MacOS: NOT SUPPORTED
 
 Linux:
 
-   gcc -m32 -c driver.c		
+   gcc -m64 -c driver.c		
    nasm -f elf ex11.asm
-   gcc -m32 driver.o ex11.o -o try11
+   nasm -f elf64 print_num.asm
+   gcc -m64 driver.o print_num.o -o tryPrint
    ./try11 8
 
    No underscores (_) in external function names.

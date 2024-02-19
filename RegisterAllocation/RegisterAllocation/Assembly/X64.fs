@@ -233,8 +233,8 @@ let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on 
                 "       mov rsp, rbx            ; Restore stack top to pre-alignment state\n" +
                 "%endmacro\n" +
                 "\n" +
-                "GLOBAL " + printi + "\n" + //was EXTERN not GLOBAL
-                "GLOBAL " + printc + "\n" +
+                "EXTERN " + printi + "\n" + //was EXTERN not GLOBAL
+                "EXTERN " + printc + "\n" +
                 "EXTERN " + checkargc + "\n" +
                 "GLOBAL " + asm_main + "\n" +
                 "section .data\n" +
@@ -265,8 +265,8 @@ let beforeinit argc =
     "\tsub qword [glovars], 8\n" + //4 originalt
     "\t;check arg count:\n" +
     "\tpush qword [rbp+16]\n" + //8 originalt
-    "\tadd rsp, 8" + //aligns stackpointer to 16-byte boundary
-    "\tmov rdi, " + string(argc)+"\n" +
+    "\tadd rsp, 8\n" + //aligns stackpointer to 16-byte boundary
+    "\tmov rsi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
     "\tadd rsp, 16\n" + //8 originalt
     "\t; allocate globals:\n"
