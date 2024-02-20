@@ -199,8 +199,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> [Ins1("push", Reg tr); Jump("call", "printi"); Ins("add rsp, 4")]
-           | "printc" -> [Ins1("push", Reg tr); Jump("call", "printc"); Ins("add rsp, 4")]
+           | "printi" -> [Ins2("mov",Reg Rdi, Reg tr);Ins2("sub",Reg Rsp,Cst 8);Jump("call", "printi");Ins2("add",Reg Rsp,Cst 8)]
+           | "printc" -> [Ins2("mov",Reg Rdi, Reg tr);Ins2("sub",Reg Rsp,Cst 8);Jump("call", "printc");Ins2("add",Reg Rsp,Cst 8)]
            | _        -> raise (Failure "unknown primitive 1"))
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
@@ -301,7 +301,7 @@ let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list =
         let (envf, fdepthf) = bindParams paras (globalVarEnv, 0)
         let code = cStmt body (envf, fdepthf) funEnv
         let arity = List.length paras
-        [FLabel (labf, arity)] @ code @ [Ins2("add", Reg Rsp, Cst (4*arity));
+        [FLabel (labf, arity)] @ code @ [Ins2("add", Reg Rsp, Cst (8*arity));
                                          Ins("pop rbp");
                                          Ins("ret")]
     let functions = 

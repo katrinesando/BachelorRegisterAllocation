@@ -1,4 +1,4 @@
-void main(int n, int x)
+void main(int n)
 {
    print 1;
 }
