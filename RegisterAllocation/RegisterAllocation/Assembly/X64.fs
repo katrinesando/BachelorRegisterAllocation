@@ -185,38 +185,6 @@ let code2x86asm (code : x86 list) : string list =
     List.iter (x86instr2int outinstr) code;
     List.rev (!bytecode)
 
-//Todo: change register names
-let printcasm =
-    "printc:\n"+
-    "       db 0xf3, 0x0f, 0x1e, 0xfa\n"+
-    "       push rbp\n"+
-    "       mov rbp, rsp\n"+
-    "       sub rsp, 0x10\n"+
-    "       mov [rbp-0x4], edi\n"+
-    "       mov eax, [rbp-0x4]\n"+
-    "       mov edi, eax\n"+
-    "       call printc\n"+
-    "       mov eax, [rbp-0x4]\n"+
-    "       leave\n"+
-    "       ret\n"
-
-let printiasm =
-    "printi:\n" +
-    "       db 0xf3, 0x0f, 0x1e, 0xfa\n"+
-    "       push rbp\n"+
-    "       mov rbp, rsp\n"+
-    "       sub rsp, 0x10\n"+
-    "       mov [rbp-0x4], edi\n"+
-    "       mov eax, [rbp-0x4]\n"+
-    "       mov esi, eax\n"+
-    "       lea rax, [rip+0]\n"+
-    "       mov rdi, rax\n"+
-    "       mov eax, 0\n"+
-    "       call printi\n"+
-    "       mov eax, [rbp-0x4]\n"+
-    "       leave\n"+
-    "       ret\n"
-
 let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on MacOS)\n" +
                 "%macro call_prolog 0\n" +
                 "       mov rbx,rsp            ; Save pre-alignment stack pointer\n" +
@@ -253,24 +221,23 @@ let beforeinit argc =
     "\tmov rsi, rdi\n" +
     "\tmov rdi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
+    "\tpop rsi\n"+
     "\tadd rsp, 16\n" + //8 originalt
     "\t; allocate globals:\n"// skal formentlig poppe ind i rsi/rdi for at få cmd-args tilbage
 
 
 let pushargs = "\t;set up command line arguments on stack:\n" +
-                //"\tmov rcx, [rbp+16]\n" +
-                //"\tmov rsi, [rbp+24]\n" + 
                 "_args_next:\n" +
                 "\tcmp rdi, 0\n" + 
                 "\tjz _args_end\n" +
-                "\tpush qword [rsi]\n" + //gives segfault
-                "\tadd rsi, 8\n" + //4 originalt - this means the array can only hold ints
+                "\tpush qword [rsi]\n" + 
+                "\tadd rsi, 4\n" + //4 originalt - this means the array can only hold ints
                 "\tsub rdi, 1\n" + //was rcx
                 "\tjmp _args_next               ;repeat until --rcx == 0\n" +
                 "_args_end:\n" +
-                "\tsub rbp, 8                   ; make rbp point to first arg\n" //4 originalt
+                "\tsub rbp, 4                  ; make rbp point to first arg\n" //4 originalt, may be causing stack misalignment
 
-let popargs =   "\t;clean up stuff pushed onto stack:\n" +
+let popargs =   "\t;clean up stuff pushed onto stack:\n" + //furthest we've gotten in execution
                 "\tmov rsp, qword [glovars]\n" +
                 "\tadd rsp, 8\n" + //4 originalt
                 "\tmov rsp, rbp\n" +
