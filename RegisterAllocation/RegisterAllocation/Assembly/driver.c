@@ -25,7 +25,7 @@ void checkargc(int a, int b) {
 
 int main(int argc, char **argv) {
   int i, args[63];
-  for (i=2; i<argc; i++) 
+  for (i=1; i<argc; i++) 
     args[i-1] = atoi(argv[i]);
   asm_main(argc-1,args);
   printf("\nRan %.3f s\n",(clock())*1.0/CLOCKS_PER_SEC);

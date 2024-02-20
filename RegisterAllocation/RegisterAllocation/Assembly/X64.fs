@@ -254,15 +254,16 @@ let beforeinit argc =
     "\tmov rdi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
     "\tadd rsp, 16\n" + //8 originalt
-    "\t; allocate globals:\n"
+    "\t; allocate globals:\n"// skal formentlig poppe ind i rsi/rdi for at få cmd-args tilbage
+
 
 let pushargs = "\t;set up command line arguments on stack:\n" +
                 //"\tmov rcx, [rbp+16]\n" +
-                "\tmov rsi, [rbp+24]\n" + 
+                //"\tmov rsi, [rbp+24]\n" + 
                 "_args_next:\n" +
                 "\tcmp rdi, 0\n" + 
                 "\tjz _args_end\n" +
-                "\tpush qword [rsi]\n" +
+                "\tpush qword [rsi]\n" + //gives segfault
                 "\tadd rsi, 8\n" + //4 originalt - this means the array can only hold ints
                 "\tsub rdi, 1\n" + //was rcx
                 "\tjmp _args_next               ;repeat until --rcx == 0\n" +
