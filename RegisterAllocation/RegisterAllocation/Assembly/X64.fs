@@ -154,12 +154,8 @@ let x86instr2int out instr =
       | FLabel (lab, n)  -> out (lab + ":\t\t\t\t;start set up frame\n" +
                                  "\tpop rax\t\t\t; retaddr\n" +
                                  "\tpop rbx\t\t\t; oldbp\n" +
-                                 if n % 2 = 1
-                                 then "\tpush rbp\n"+ //if even arity align stack to 16-bytes
-                                      "\tmov rbp, rsp\n" +
-                                      "\tsub rsp, 8\n" //only -8 because extra thing is pushed
-                                 else "\tsub rsp, 16\n" //8 originalt
-                                 + "\tmov rsi, rsp\n" +
+                                 "\tsub rsp, 16\n" +
+                                 "\tmov rsi, rsp\n" +
                                  "\tmov rbp, rsp\n" +
                                  "\tadd rbp, " + string(8*n) + "\t\t; 8*arity\n" + //4 originalt
                                  lab + "_pro_1:\t\t\t; slide arguments\n" +
@@ -234,17 +230,15 @@ let pushargs = "\t;set up command line arguments on stack:\n" +
                 "_args_next:\n" +
                 "\tcmp rdi, 0\n" + 
                 "\tjz _args_end\n" +
-                "\tpush qword [rsi]\n" + 
-                "\tadd rsi, 4\n" + //4 originalt - this means the array can only hold ints
+                "\tpush qword [rsi]\n" + //push decrements rsp based on size of operand esi is 4-byte rsi is 8-byte
+                "\tadd rsi, 8\n" + //4 originalt - this means the array can only hold ints
                 "\tsub rdi, 1\n" + //was rcx
                 "\tjmp _args_next           ;repeat until --rcx == 0\n" +
-                "_args_end:\n" +
-                "\tsub rbp, 8           ; make rbp point to first arg\n" //4 causes stack misalignment
-
+                "_args_end:\n"
+               
 let popargs =   "\t;clean up stuff pushed onto stack:\n" + //furthest we've gotten in execution
                 "\tmov rsp, qword [glovars]\n" +
                 "\tadd rsp, 8\n" + //4 originalt
-                "\tadd rbp, 8\n" +
                 "\tmov rsp, rbp\n" +
                 "\tpop rbp\n" +
                 "\tret\n"
