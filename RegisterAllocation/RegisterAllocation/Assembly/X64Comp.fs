@@ -78,13 +78,13 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let labtest = newLabel()
       let labbegin = newLabel()
       let code = [Ins("mov rax, rsp");
-                  Ins("sub rax, 4"); //4 originalt - this means the array can only hold ints
-                  Ins2("sub", Reg Rsp, Cst (4*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
+                  Ins("sub rax, 8"); //4 originalt - this means the array can only hold ints
+                  Ins2("sub", Reg Rsp, Cst (8*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
                   Ins1("push", Reg Rax)]
       (newEnv, code) 
     | _ -> 
       let newEnv = ((x, (kind fdepth, typ)) :: env, fdepth+1)
-      let code = [Ins "sub rsp, 4"] //4 originalt
+      let code = [Ins "sub rsp, 8"] //4 originalt
       (newEnv, code)
 
 (* Bind declared parameters in env: *)
@@ -148,14 +148,14 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
             let (fdepthr, coder) = loop sr varEnv1 
             (fdepthr, code1 @ coder)
       let (fdepthend, code) = loop stmts varEnv
-      code @ [Ins2("sub", Reg Rsp, Cst (4 * (snd varEnv - fdepthend)))]
+      code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))]      // was 4
     | Return None ->
-        [Ins2("add", Reg Rsp, Cst (4 * snd varEnv));
+        [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4
          Ins("pop rbp");
          Ins("ret")]
     | Return (Some e) -> 
     cExpr e varEnv funEnv Rbx [] 
-    @ [Ins2("add", Reg Rsp, Cst (4 * snd varEnv));
+    @ [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4 - never 4 in RSP
        Ins("pop rbp");
        Ins("ret")]
 
