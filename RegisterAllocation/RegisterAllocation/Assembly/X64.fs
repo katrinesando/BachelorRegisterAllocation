@@ -154,8 +154,12 @@ let x86instr2int out instr =
       | FLabel (lab, n)  -> out (lab + ":\t\t\t\t;start set up frame\n" +
                                  "\tpop rax\t\t\t; retaddr\n" +
                                  "\tpop rbx\t\t\t; oldbp\n" +
-                                 "\tsub rsp, 16\n" + //8 originalt
-                                 "\tmov rsi, rsp\n" +
+                                 if n % 2 = 0
+                                 then "\tpush rbp\n"+ //if even arity align stack to 16-bytes
+                                      "\tmov rbp, rsp\n" +
+                                      "\tsub rsp, 8\n" //only -8 because extra thing is pushed
+                                 else "\tsub rsp, 16\n" //8 originalt
+                                 + "\tmov rsi, rsp\n" +
                                  "\tmov rbp, rsp\n" +
                                  "\tadd rbp, " + string(8*n) + "\t\t; 8*arity\n" + //4 originalt
                                  lab + "_pro_1:\t\t\t; slide arguments\n" +
@@ -168,8 +172,8 @@ let x86instr2int out instr =
                                  lab + "_pro_2:\n" +
                                  "\tsub rbp, 8\n" + //4 originalt
                                  "\tmov [rbp+16], rax\n" + //8 originalt
-                                 "\tmov [rbp+8], rbx\n" + //4 originalt
-                                 lab + "_tc:\t;end set up frame\n")
+                                 "\tmov [rbp+8], rbx\n" + //4 originalt               
+                                   lab + "_tc:\t;end set up frame\n")
       | Ins ins               -> outins ins
       | Ins1 (ins, op1)       -> outins (ins + " " + operand op1)
       | Ins2 (ins, op1, op2)  -> outins (ins + " " + operand op1 + ", " + operand op2)

@@ -199,8 +199,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> [Ins2("mov",Reg Rdi, Reg tr);Ins2("sub",Reg Rsp,Cst 8);Jump("call", "printi");Ins2("add",Reg Rsp,Cst 8)]
-           | "printc" -> [Ins2("mov",Reg Rdi, Reg tr);Ins2("sub",Reg Rsp,Cst 8);Jump("call", "printc");Ins2("add",Reg Rsp,Cst 8)]
+           | "printi" -> [Ins2("mov",Reg Rdi, Reg tr);Jump("call", "printi")]
+           | "printc" -> [Ins2("mov",Reg Rdi, Reg tr);Jump("call", "printc")]
            | _        -> raise (Failure "unknown primitive 1"))
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
