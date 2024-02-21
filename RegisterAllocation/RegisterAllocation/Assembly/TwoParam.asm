@@ -75,7 +75,7 @@ _main_tc:	;end set up frame
 	lea rbx, [rbp - 0]
 	mov rbx, [rbx]
 	mov rdi, rbx
-
+	sub rsp, 8
 	call near printi
 	add rsp, 8
 	sub rsp, 0
