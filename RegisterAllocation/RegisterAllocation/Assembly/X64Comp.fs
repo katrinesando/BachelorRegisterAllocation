@@ -116,7 +116,6 @@ let makeGlobalEnvs (topdecs : topdec list) : varEnv * funEnv * x86 list =
 (* ------------------------------------------------------------------- *)
 
 (* Compiling micro-C statements *)
-//Todo: Change all 32-bit registers to 64-bit (Reg) and check the bit shifting
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list = 
     match stmt with
     | If(e, stmt1, stmt2) -> 
