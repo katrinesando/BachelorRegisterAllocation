@@ -206,7 +206,7 @@ let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on 
                 "EXTERN " + checkargc + "\n" +
                 "GLOBAL " + asm_main + "\n" +
                 "section .data\n" +
-                "\tglovars dd 0\n" +
+                "\tglovars dq 0\n" +
                 "section .text\n"
 
 let beforeinit argc =
@@ -214,7 +214,6 @@ let beforeinit argc =
     "\tpush rbp ;old bp\n" +
     "\tmov rbp, rsp ;new bp\n" +
     "\tmov qword [glovars], rsp\n" +
-    "\tsub qword [glovars], 8\n" + //4 originalt
     "\t;check arg count:\n" +
     "\tpush qword [rbp+16]\n" + //8 originalt
     "\tpush rsi\n" + //aligns stackpointer to 16-byte boundary
