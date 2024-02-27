@@ -269,7 +269,7 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
       @ [Ins2("mov", Reg tr, Ind tr)]
       @ let tr' = getTempFor (tr :: pres) 
         in cExpr idx varEnv funEnv tr' (tr :: pres)
-           @ [Ins2("sal", Reg tr', Cst 2);
+           @ [Ins2("sal", Reg tr', Cst 3);
               Ins2("sub", Reg tr, Reg tr')]
 
 (* Generate code to evaluate a list es of expressions: *)
