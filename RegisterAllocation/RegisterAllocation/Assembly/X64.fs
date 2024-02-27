@@ -1,5 +1,5 @@
 ﻿module X64
-(* File Assembly/X86.fs
+(* File Assembly/X64.fs
 
    Instructions and assembly code emission for a x86 machine.
    sestoft@itu.dk * 2017-05-01
@@ -43,7 +43,6 @@ type label = string
 
 type flabel = string
 
-//Todo: Change 32-bit to 64-bit -> include all registers
 type reg32 =
     | Eax | Ecx | Edx | Ebx | Esi | Edi | Esp | Ebp
 
@@ -70,7 +69,6 @@ type x86 =
     | PRINTI                            (* print [rsp] as integer          *)
     | PRINTC                            (* print [rsp] as character        *)
 
-//Todo: Change to include all 64-bit registers
 let fromReg reg =
     match reg with
     | Rax  -> "rax"
@@ -235,7 +233,7 @@ let pushargs = "\t;set up command line arguments on stack:\n" +
                 "\tjmp _args_next           ;repeat until --rcx == 0\n" +
                 "_args_end:\n"
                
-let popargs =   "\t;clean up stuff pushed onto stack:\n" + //furthest we've gotten in execution
+let popargs =   "\t;clean up stuff pushed onto stack:\n" + 
                 "\tmov rsp, qword [glovars]\n" +
                 "\tadd rsp, 8\n" + //4 originalt
                 "\tmov rsp, rbp\n" +
