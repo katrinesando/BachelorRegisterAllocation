@@ -255,7 +255,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
     | Call(f, es) -> callfun f es varEnv funEnv tr pres
 
 (* Generate code to access variable, dereference pointer or index array: *)
-
+//pres = registers currently in use
 and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
     match access with 
     | AccVar x ->
@@ -265,11 +265,11 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
       | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (8*addr))]
     | AccDeref e ->
         match e with
-        | Prim2(ope, e1, e2) ->
+        | Prim2(ope, e1, e2) -> //pointer arithmetic
             cExpr e1 varEnv funEnv tr pres @
-            let tr' = getTempFor (tr::pres) //pres = registers currently in use
+            let tr' = getTempFor (tr::pres) 
             in cExpr e2 varEnv funEnv tr' (tr :: pres) @
-            match ope with
+            match ope with //+/- need to be flipped due to how the stack grow towards lower addresses
             | "+" -> [Ins2("sal", Reg tr', Cst 3);Ins2("sub", Reg tr, Reg tr')]
             | "-" -> [Ins2("sal", Reg tr', Cst 3);Ins2("add", Reg tr, Reg tr')]
             | _   -> raise (Failure (ope + " operator not allowed when dereferencing"))
