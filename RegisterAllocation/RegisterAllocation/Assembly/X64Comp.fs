@@ -263,7 +263,17 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
       | Glovar addr, _ -> [Ins2("mov", Reg tr, Glovars);
                            Ins2("sub", Reg tr, Cst (8*addr))]
       | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (8*addr))]
-    | AccDeref e -> cExpr e varEnv funEnv tr pres
+    | AccDeref e ->
+        match e with
+        | Prim2(ope, e1, e2) ->
+            cExpr e1 varEnv funEnv tr pres @
+            let tr' = getTempFor (tr::pres) //pres = registers currently in use
+            in cExpr e2 varEnv funEnv tr' (tr :: pres) @
+            match ope with
+            | "+" -> [Ins2("sal", Reg tr', Cst 3);Ins2("sub", Reg tr, Reg tr')]
+            | "-" -> [Ins2("sal", Reg tr', Cst 3);Ins2("add", Reg tr, Reg tr')]
+            | _   -> raise (Failure (ope + " operator not allowed when dereferencing"))
+        | _ -> cExpr e varEnv funEnv tr pres
     | AccIndex(acc, idx) ->
       cAccess acc varEnv funEnv tr pres
       @ [Ins2("mov", Reg tr, Ind tr)]
