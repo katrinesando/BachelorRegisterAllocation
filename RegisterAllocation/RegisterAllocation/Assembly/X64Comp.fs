@@ -205,8 +205,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
            | _        -> raise (Failure "unknown primitive 1"))
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
-        in
-        cExpr e1 varEnv funEnv tr pres
+        in cExpr e1 varEnv funEnv tr pres
         @ [Ins1("push",Reg tr)]
         @ let tr' = getTempFor (avoid @ pres)
         //go down expression tree

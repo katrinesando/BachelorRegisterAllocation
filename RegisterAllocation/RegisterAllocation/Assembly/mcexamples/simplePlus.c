@@ -3,5 +3,6 @@
 
 void main() {
     int complex;
-    complex = 1 + 2 + 3 + 4 + 5; //Too complex of an expression
+    complex = 1 + 2 + 3 + 4 + 5;
+    print complex;
 }

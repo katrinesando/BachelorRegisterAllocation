@@ -69,7 +69,7 @@ let getTempFor (pres : reg64 list) : reg64 =
     match getTemp pres with
     | None     -> failwith "no more registers, expression too complex"
     | Some reg -> reg
-
+let free (reg:reg64) (pres:reg64 list) = List.filter (fun x -> x <> reg) pres
 
 //Might run into problems with push and pop with 64-bit nasm (might be a bug that's fixed though)
 let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
