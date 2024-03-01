@@ -186,9 +186,10 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
     | Assign(acc, e) ->
         let tr' = getTempFor (tr :: pres)
         //switched cExpr and cAccess
-        in cExpr e varEnv funEnv tr (tr' :: pres)
-           @ cAccess acc varEnv funEnv tr' (tr :: pres)
-           @ [Ins2("mov", Ind tr', Reg tr)]
+        in cExpr e varEnv funEnv tr pres //(tr' :: pres)
+           @ [Ins1("push",Reg tr)]
+           @ cAccess acc varEnv funEnv tr' pres //(tr :: pres)
+           @ [Ins1("pop", Reg tr );Ins2("mov", Ind tr', Reg tr)]
     | CstI i         ->
         [Ins2("mov", Reg tr, Cst i)]
     | Addr acc       ->
@@ -209,7 +210,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
         @ [Ins1("push",Reg tr)]
         @ let tr' = getTempFor (avoid @ pres)
         //go down expression tree
-          in cExpr e2 varEnv funEnv tr' (tr :: pres)
+          in cExpr e2 varEnv funEnv tr' pres //(tr :: pres)
              @ [Ins1("push",Reg tr')]
              @ match ope with
                | "+"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("add", Reg tr, Reg tr')]
