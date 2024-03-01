@@ -2,9 +2,6 @@
 //Which is the case as of writting the code. 
 
 void main() {
-    int n;
-    n = 1; 
     int complex;
-    complex = n + (n + (n + (n + (n + (n + n))))); //Too complex of an expression
-    print complex;
+    complex = 1 + 2 + 3 + 4 + 5; //Too complex of an expression
 }

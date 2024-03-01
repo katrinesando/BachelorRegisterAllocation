@@ -184,9 +184,10 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
     | Access acc     ->
         cAccess acc varEnv funEnv tr pres @ [Ins2("mov", Reg tr, Ind tr)] 
     | Assign(acc, e) ->
-        let tr' = getTempFor (tr :: pres) 
-        in cAccess acc varEnv funEnv tr' (tr :: pres)
-           @ cExpr e varEnv funEnv tr (tr' :: pres)
+        let tr' = getTempFor (tr :: pres)
+        //switched cExpr and cAccess
+        in cExpr e varEnv funEnv tr (tr' :: pres)
+           @ cAccess acc varEnv funEnv tr' (tr :: pres)
            @ [Ins2("mov", Ind tr', Reg tr)]
     | CstI i         ->
         [Ins2("mov", Reg tr, Cst i)]
@@ -206,11 +207,14 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
         let avoid = if ope = "/" || ope = "%" then [Rdx; tr] else [tr]
         in
         cExpr e1 varEnv funEnv tr pres
+        @ [Ins1("push",Reg tr)]
         @ let tr' = getTempFor (avoid @ pres)
+        //go down expression tree
           in cExpr e2 varEnv funEnv tr' (tr :: pres)
+             @ [Ins1("push",Reg tr')]
              @ match ope with
-               | "+"   -> [Ins2("add", Reg tr, Reg tr')]
-               | "-"   -> [Ins2("sub", Reg tr, Reg tr')]
+               | "+"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("add", Reg tr, Reg tr')]
+               | "-"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("sub", Reg tr, Reg tr')]
                | "*"   -> [Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres)
                             [Ins1("imul", Reg tr')] // Invalidates Rdx

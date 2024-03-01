@@ -39,32 +39,6 @@ let printc    = prefix + "printc"
 let checkargc = prefix + "checkargc"
 let asm_main  = prefix + "asm_main"
 
-type label = string
-
-type flabel = string
-
-//General purpose registers for 64-bit
-
-(* Operands of x86 instructions *)
-type rand =
-    | Cst of int                        (* immediate dword n               *)
-    | Reg of reg64                      (* register rbx                    *)
-    | Ind of reg64                      (* register indirect [rbx]         *)
-    | RbpOff of int                     (* rbp offset indirect [rbp - n]   *)
-    | Glovars                           (* stackbase [glovars]             *)
-
-(* Instructions represented by the x86 type *)
-type x86 =
-    | Label of label                    (* symbolic label; pseudo-instruc. *)
-    | FLabel of flabel * int            (* function label, arity; pseudo.  *)
-    | Ins of string                     (* eg. sub rsp, 4                  *)
-    | Ins1 of string * rand             (* eg. push rax                    *)
-    | Ins2 of string * rand * rand      (* eg. add rax, [rbp - 32]         *)
-    | Jump of string * label            (* eg. jz near lab                 *)
-    | PRINTI                            (* print [rsp] as integer          *)
-    | PRINTC                            (* print [rsp] as character        *)
-
-
 let operand rand : string =
     match rand with
         | Cst n    -> string n
@@ -74,17 +48,6 @@ let operand rand : string =
         | Glovars  -> "[glovars]"
 
 
-
-//Might run into problems with push and pop with 64-bit nasm (might be a bug that's fixed though)
-let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
-
-(* Preserve reg across code, on the stack if necessary *)
-(* Maybe move to Allocate.fs if spilling needs it*)
-let preserve reg pres code =
-    if mem reg pres then
-       pushAndPop reg code
-    else
-        code
 
 (* Preserve all live registers around code, eg a function call *)
 let rec preserveAll pres code =
