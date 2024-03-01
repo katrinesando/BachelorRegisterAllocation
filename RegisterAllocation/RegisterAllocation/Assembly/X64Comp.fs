@@ -215,16 +215,16 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
              @ match ope with
                | "+"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("add", Reg tr, Reg tr')]
                | "-"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("sub", Reg tr, Reg tr')]
-               | "*"   -> [Ins2("mov", Reg Rax, Reg tr)]
+               | "*"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres)
                             [Ins1("imul", Reg tr')] // Invalidates Rdx
                           @ [Ins2("mov", Reg tr, Reg Rax)]
-               | "/"   -> [Ins2("mov", Reg Rax, Reg tr)]
+               | "/"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres) 
                             [Ins("cdq");            // Invalidates Rdx
                              Ins1("idiv", Reg tr')] // Invalidates Rax Rdx
                           @ [Ins2("mov", Reg tr, Reg Rax)]
-               | "%"   -> [Ins2("mov", Reg Rax, Reg tr)]
+               | "%"   -> [Ins1("pop", Reg tr'); Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres) 
                             [Ins("cdq");            // Invalidates Rdx
                              Ins1("idiv", Reg tr'); // Invalidates Rax Rdx
@@ -238,7 +238,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
                                         | ">"  -> "setg al"
                                         | "<=" -> "setle al"
                                         | _    -> failwith "internal error")
-                     [Ins("xor rax, rax");
+                     [Ins("xor rax, rax");Ins1("pop", Reg tr'); Ins1("pop", Reg tr);
                       Ins2("cmp", Reg tr, Reg tr');
                       Ins(setcompbits);
                       Ins2("mov", Reg tr, Reg Rax)]
