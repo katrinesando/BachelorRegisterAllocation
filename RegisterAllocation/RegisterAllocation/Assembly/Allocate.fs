@@ -3,11 +3,12 @@
 open Absyn
 
 type node =
-    | Node of stmtordec list * node list //basic block (node) and djencency list (edges)
+    | InnerNode of stmtordec list //basic block (node)
+    | OuterNode of topdec list
     
 type CFG =
     | Empty
-    | Nodes of node list
+    | Nodes of node * node * Map<node, node list> //entry, exit, and Map of bb & adjencency list (edges)
  
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
@@ -51,11 +52,15 @@ let getTempFor (pres : reg64 list) : reg64 =
     | None     -> failwith "no more registers, expression too complex"
     | Some reg -> reg
 
-
+let join p q =
+    Map(Seq.concat [(Map.toSeq p);(Map.toSeq q)])
+    
 let stmtToCFG stmt  =
     let rec aux rest acc =
         match rest with
-        | 
+        | If(cond, s1, s2) ->
+            let entry = InnerNode
+        | Block stmtordecs
     aux stmt Empty
     
 let createCFG prog =
@@ -64,9 +69,22 @@ let createCFG prog =
         | [] -> acc
         | x :: xs ->
             match x, acc with
-            | Fundec (_, name, args, body), Empty ->
-                stmtToCFG cbody 
-            | Vardec (typ, name) ->
+            | Vardec _, Empty ->
+                let first = OuterNode (x::[])
+                let newCFG = Nodes (first,first,Map.empty |> Map.add first [])
+                aux xs newCFG
+            | Vardec _, Nodes(OuterNode decs, _, nodeMap) ->
+                let newEntry = OuterNode ([x]@decs)
+                let newCFG = Nodes (newEntry,newEntry,nodeMap)
+                aux xs newCFG
+            | Fundec (_, name, args, body), Empty -> //Subject to change
+                let newCFG = stmtToCFG body
+                aux xs newCFG
+            | Fundec(_, name, args, body), Nodes(entry, exit, nodeMap) -> //this is wrong
+                let (subEntry, subExit, subNMap) = stmtToCFG body
+                let newAdj = subEntry :: (Map.find exit nodeMap)
+                let newMap = Map.add exit newAdj nodeMap |> join subNMap
+                aux xs (Nodes(entry,subExit,newMap))
                 
-    aux prog [] 
-
+    aux prog Empty 
+ 
