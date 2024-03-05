@@ -1,5 +1,14 @@
 ﻿module Allocate
 
+open Absyn
+
+type node =
+    | Node of stmtordec list * node list //basic block (node) and djencency list (edges)
+    
+type CFG =
+    | Empty
+    | Nodes of node list
+ 
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
 let fromReg reg =
@@ -43,4 +52,21 @@ let getTempFor (pres : reg64 list) : reg64 =
     | Some reg -> reg
 
 
+let stmtToCFG stmt  =
+    let rec aux rest acc =
+        match rest with
+        | 
+    aux stmt Empty
+    
+let createCFG prog =
+    let rec aux rest acc = 
+        match rest with
+        | [] -> acc
+        | x :: xs ->
+            match x, acc with
+            | Fundec (_, name, args, body), Empty ->
+                stmtToCFG cbody 
+            | Vardec (typ, name) ->
+                
+    aux prog [] 
 
