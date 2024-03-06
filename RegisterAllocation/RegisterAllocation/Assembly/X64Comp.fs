@@ -37,35 +37,15 @@
 
 open System.IO
 open Absyn
+open DecorAbsyn
 open X64
 open Allocate
 
 (* ------------------------------------------------------------------- *)
 
-(* Simple environment operations *)
-
-type 'data env = (string * 'data) list
-
-let rec lookup env x = 
-    match env with 
-    | []         -> failwith (x + " not found")
-    | (y, v)::yr -> if x=y then v else lookup yr x
-
 (* A global variable has a fixed address, a local one has an offset: *)
 
-type var = 
-    Glovar of int                   (* address relative to bottom of stack *)
-  | Locvar of int                   (* address relative to bottom of frame *)
 
-(* The variable environment keeps track of global and local variables, and 
-   keeps track of next available offset for local variables *)
-
-type varEnv = (var * typ) env * int
-
-(* The function environment maps function name to label and parameter decs *)
-
-type paramdecs = (typ * string) list
-type funEnv = (flabel * typ option * paramdecs) env
 
 (* Bind declared variable in env and generate code to allocate it: *)
 
@@ -76,11 +56,11 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       raise (Failure "allocate: array of arrays not permitted")
     | TypA (t, Some i) -> 
       let newEnv = ((x, (kind (fdepth+i), typ)) :: env, fdepth+i+1)
-      let labtest = newLabel()
-      let labbegin = newLabel()
+      //let labtest = newLabel()
+      //let labbegin = newLabel()
       let code = [Ins("mov rax, rsp");
                   Ins("sub rax, 8"); //4 originalt - this means the array can only hold ints
-                  Ins2("sub", Reg Rsp, Cst (8*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
+                  Ins2("sub", Reg Rsp, Cst (8*i));
                   Ins1("push", Reg Rax)]
       (newEnv, code) 
     | _ -> 

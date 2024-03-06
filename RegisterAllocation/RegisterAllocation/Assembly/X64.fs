@@ -41,7 +41,7 @@ let asm_main  = prefix + "asm_main"
 
 type label = string
 
-type flabel = string
+
 
 //General purpose registers for 64-bit
 
