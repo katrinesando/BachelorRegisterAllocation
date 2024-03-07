@@ -10,21 +10,19 @@ open Microsoft.VisualBasic
  *)
 open Absyn
 
-type dstmt<'info> = ddstmt<'info> * 'info
-                                                                  
-and ddstmt<'info> =                                                         
-  | DIf of expr * dstmt<'info> * dstmt<'info>        (* Conditional                 *)
-  | DWhile of expr * dstmt<'info>             (* While loop                  *)
-  | DExpr of expr                     (* Expression statement   e;   *)
-  | DReturn of expr option            (* Return from method          *)
-  | DBlock of stmtordec<'info> list          (* Block: grouping and scope   *)
+type dstmt<'info> =                                                     
+  | DIf of expr * dstmt<'info> * dstmt<'info> * 'info           (* Conditional                 *)
+  | DWhile of expr * dstmt<'info> * 'info                (* While loop                  *)
+  | DExpr of expr * 'info                        (* Expression statement   e;   *)
+  | DReturn of expr option * 'info               (* Return from method          *)
+  | DBlock of stmtordec<'info> list * 'info            (* Block: grouping and scope   *)
                                                                    
 and stmtordec<'info> =                                                    
   | DDec of typ * string * 'info             (* Local variable declaration  *)
-  | DStmt of dstmt<'info>                     (* A statement                 *)
+  | DStmt of dstmt<'info> * 'info                        (* A statement                 *)
 
 and topdec<'info> = 
-  | DFundec of typ option * string * (typ * string) list * dstmt<'info>
+  | DFundec of typ option * string * (typ * string) list * dstmt<'info> * 'info   
   | DVardec of typ * string * 'info
 
 and program<'info> = 

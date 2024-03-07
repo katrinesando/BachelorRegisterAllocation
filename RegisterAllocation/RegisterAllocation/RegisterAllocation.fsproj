@@ -15,6 +15,7 @@
         <Content Include="Assembly\nasm\winsimple.asm" />
         <Content Include="Assembly\README.TXT" />
         <Compile Include="Assembly\Absyn.fs" />
+        <Compile Include="Assembly\MapUtility.fs" />
         <Compile Include="Assembly\CLex.fs" />
         <Content Include="Assembly\CLex.fsl" />
         <Compile Include="Assembly\CPar.fs" />

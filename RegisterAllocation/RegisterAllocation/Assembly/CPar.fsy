@@ -6,9 +6,15 @@
 *)
 
 open Absyn
-
+open ParseUtility
 let compose1 f (g, s) = ((fun x -> g(f(x))), s)
 let nl = CstI 10
+
+let mutable counter = 0
+let varAssign name = 
+    counter <- counter+1
+    name+(string counter)
+
 %}
 
 %token <int> CSTINT CSTBOOL
@@ -56,7 +62,7 @@ Vardec:
 ;
 
 Vardesc: 
-    NAME                                { ((fun t -> t), $1)                      }
+    NAME                                { ((fun t -> t), (varAssign $1))        }
   | TIMES Vardesc                       { compose1 TypP $2                        }
   | LPAR Vardesc RPAR                   { $2                                      } 
   | Vardesc LBRACK RBRACK               { compose1 (fun t -> TypA(t, None)) $1    }
