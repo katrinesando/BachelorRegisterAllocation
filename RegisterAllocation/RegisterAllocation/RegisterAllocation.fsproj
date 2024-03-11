@@ -15,7 +15,6 @@
         <Content Include="Assembly\nasm\winsimple.asm" />
         <Content Include="Assembly\README.TXT" />
         <Compile Include="Assembly\Absyn.fs" />
-        <Compile Include="Assembly\MapUtility.fs" />
         <Compile Include="Assembly\CLex.fs" />
         <Content Include="Assembly\CLex.fsl" />
         <Compile Include="Assembly\CPar.fs" />
@@ -26,7 +25,9 @@
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\DecorAbsyn.fs" />
+        <Compile Include="Assembly\Utility.fs" />
         <Compile Include="Assembly\Allocate.fs" />
+        <Compile Include="Assembly\Rename.fs" />
         <Compile Include="Assembly\X64.fs" />
         <Content Include="Assembly\try1" />
         <Compile Include="Assembly\X86.fs" />
@@ -66,6 +67,7 @@
         <Content Include="Assembly\mcexamples\ex6.asm" />
         <Content Include="Assembly\mcexamples\ex11.asm" />
         <Content Include="Assembly\mcexamples\ex11.o" />
+        <ClCompile Include="Assembly\mcexamples\name.c" />
     </ItemGroup>
 
 </Project>

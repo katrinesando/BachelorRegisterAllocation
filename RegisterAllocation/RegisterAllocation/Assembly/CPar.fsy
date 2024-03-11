@@ -6,7 +6,6 @@
 *)
 
 open Absyn
-open ParseUtility
 let compose1 f (g, s) = ((fun x -> g(f(x))), s)
 let nl = CstI 10
 

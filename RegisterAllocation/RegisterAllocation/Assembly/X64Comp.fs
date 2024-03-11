@@ -40,14 +40,11 @@ open Absyn
 open DecorAbsyn
 open X64
 open Allocate
+open Utility
 
 (* ------------------------------------------------------------------- *)
 
-(* A global variable has a fixed address, a local one has an offset: *)
 
-
-
-(* Bind declared variable in env and generate code to allocate it: *)
 
 let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list =
     let (env, fdepth) = varEnv 
@@ -68,13 +65,7 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let code = [Ins "sub rsp, 8"] //4 originalt
       (newEnv, code)
 
-(* Bind declared parameters in env: *)
 
-let bindParam (env, fdepth) (typ, x)  : varEnv = 
-    ((x, (Locvar fdepth, typ)) :: env , fdepth+1)
-
-let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
-    List.fold bindParam (env, fdepth) paras;
 
 (* ------------------------------------------------------------------- *)
 
