@@ -13,7 +13,7 @@ open Absyn
 let fromString (str : string) : program =
     let lexbuf = LexBuffer<char>.FromString(str)
     try 
-      CPar.Main CLex.Token lexbuf
+      CPar.Main CLex.Token lexbuf |> Rename.renameVars
     with 
       | exn -> let pos = lexbuf.EndPos 
                failwithf "%s near line %d, column %d\n" 
@@ -25,7 +25,7 @@ let fromFile (filename : string) =
     use reader = new StreamReader(filename)
     let lexbuf = LexBuffer<char>.FromTextReader reader
     try 
-      CPar.Main CLex.Token lexbuf
+      CPar.Main CLex.Token lexbuf |> Rename.renameVars
     with 
       | exn -> let pos = lexbuf.EndPos 
                failwithf "%s in file %s near line %d, column %d\n" 

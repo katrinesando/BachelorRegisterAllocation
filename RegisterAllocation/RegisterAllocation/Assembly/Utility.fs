@@ -1,5 +1,6 @@
 ﻿module Utility
 open Absyn
+open System.Text.RegularExpressions
 type flabel = string
 type 'data env = (string * 'data) list
 type var = 
@@ -19,14 +20,15 @@ let rec lookup env x =
     | (y, v)::yr -> if x=y then v else lookup yr x
 
 let rec lookupInMap depth (name : string) m =
+    let rex = Regex (name+"[0-9]+",RegexOptions.Compiled)
     if depth >= 0 then
         match Map.tryFind depth m with
         | None -> lookupInMap (depth-1) name m
-        | Some vars ->
+        | Some vars ->                
                 let rec aux rest  = 
                     match rest with
                     |[] ->  lookupInMap (depth-1) name m 
-                    |(n:string)::xs -> if n.StartsWith(name) then n else aux xs
+                    |(n:string)::xs -> if rex.IsMatch n then n else aux xs
                 aux vars
     else
         failwith ("variable " + name + " not declared")
@@ -49,8 +51,8 @@ let bindParams paras ((env, fdepth) : varEnv) : varEnv =
 let expandEnv kind (typ, x) (env,depth) =
     match typ with
     | TypA(TypA _, _) -> raise (Failure "expandEnv: array of arrays not permitted")
-    | TypA(_, Some i) -> ((x, (kind (depth+i), typ)) :: env, depth+i+1)
-    | _ -> ((x, (kind depth, typ)) :: env, depth+1)  
+    | TypA(_, Some i) -> ((x, (kind (depth), typ)) :: env, depth)
+    | _ -> ((x, (kind depth, typ)) :: env, depth)  
 let makeEnvs (topdecs : topdec list) : varEnv * funEnv * Map<int, string list> = 
     let rec addv decs varEnv funEnv map = 
         match decs with 
