@@ -50,7 +50,7 @@ let getTempFor (pres : reg64 list) : reg64 =
 
 
 (* Simple environment operations *)
-                 (* address relative to bottom of frame *)
+(* address relative to bottom of frame *)
 
 (* The variable environment keeps track of global and local variables, and 
    keeps track of next available offset for local variables *)
@@ -133,7 +133,11 @@ and aExpr (e : expr) lst =
 and aAccess access lst  =
   match access with
   | AccVar x            ->
-      AccVar x, (x::lst)  //adds live variable to list
+      if List.contains x lst |> not
+      then
+        AccVar x, (x::lst)  //adds live variable to list
+      else
+        AccVar x, (lst)
   | AccDeref e          ->
       let newExpr, newLst = aExpr e lst
       AccDeref newExpr, newLst

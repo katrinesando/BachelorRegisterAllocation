@@ -44,8 +44,6 @@ open Utility
 
 (* ------------------------------------------------------------------- *)
 
-
-
 let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list =
     let (env, fdepth) = varEnv 
     match typ with
@@ -71,17 +69,17 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
 
 (* Global environments for variables and functions *)
 
-let makeGlobalEnvs (topdecs : topdec list) : varEnv * funEnv * x86 list = 
+let makeGlobalEnvs (topdecs) : varEnv * funEnv * x86 list = 
     let rec addv decs varEnv funEnv = 
         match decs with 
         | []         -> (varEnv, funEnv, [])
         | dec::decr  -> 
           match dec with
-          | Vardec (typ, var) ->
+          | DVardec (typ, var,info) ->
             let (varEnv1, code1)          = allocate Glovar (typ, var) varEnv
             let (varEnvr, funEnvr, coder) = addv decr varEnv1 funEnv
             (varEnvr, funEnvr, code1 @ coder)
-          | Fundec (tyOpt, f, xs, body) ->
+          | DFundec (tyOpt, f, xs, body,info) ->
             addv decr varEnv ((f, ("_" + f, tyOpt, xs)) :: funEnv)
     addv topdecs ([], 0) []
 
@@ -90,7 +88,7 @@ let makeGlobalEnvs (topdecs : topdec list) : varEnv * funEnv * x86 list =
 (* Compiling micro-C statements *)
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list = 
     match stmt with
-    | If(e, stmt1, stmt2) -> 
+    | DIf(e, stmt1, stmt2,info) -> 
       let labelse = newLabel()
       let labend  = newLabel()
       cExpr e varEnv funEnv Rbx []
@@ -100,7 +98,7 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
       @ [Jump("jmp", labend)]
       @ [Label labelse] @ cStmt stmt2 varEnv funEnv
       @ [Label labend]           
-    | While(e, body) ->
+    | DWhile(e, body,info) ->
       let labbegin = newLabel()
       let labtest  = newLabel()
       [Jump("jmp", labtest);
@@ -108,9 +106,9 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
       @ [Label labtest] @ cExpr e varEnv funEnv Rbx []
       @ [Ins2("cmp", Reg Rbx, Cst 0);
          Jump("jnz", labbegin)]
-    | Expr e -> 
+    | DExpr(e,info) -> 
       cExpr e varEnv funEnv Rbx []
-    | Block stmts -> 
+    | DBlock(stmts,info) -> 
       let rec loop stmts varEnv =
           match stmts with 
           | []     -> (snd varEnv, [])
@@ -120,11 +118,11 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
             (fdepthr, code1 @ coder)
       let (fdepthend, code) = loop stmts varEnv
       code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))]      // was 4
-    | Return None ->
+    | DReturn(None,info) ->
         [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4
          Ins("pop rbp");
          Ins("ret")]
-    | Return (Some e) -> 
+    | DReturn(Some e,info) -> 
     cExpr e varEnv funEnv Rbx [] 
     @ [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4 - never 4 in RSP
        Ins("pop rbp");
@@ -133,8 +131,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
 
 and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) : varEnv * x86 list = 
     match stmtOrDec with 
-    | Stmt stmt    -> (varEnv, cStmt stmt varEnv funEnv) 
-    | Dec (typ, x) -> allocate Locvar (typ, x) varEnv
+    | DStmt stmt    -> (varEnv, cStmt stmt varEnv funEnv) 
+    | DDec (typ, x) -> allocate Locvar (typ, x) varEnv
 
 (* Compiling micro-C expressions: 
 
@@ -274,7 +272,7 @@ and callfun f es varEnv funEnv tr pres : x86 list =
 
 (* Compile a complete micro-C program: globals, call to main, functions *)
 
-let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list = 
+let cProgram (DProg topdecs) : x86 list * int * x86 list * x86 list = 
     let _ = resetLabels ()
     let ((globalVarEnv, _), funEnv, globalInit) = makeGlobalEnvs topdecs
     let compilefun (tyOpt, f, xs, body) =
@@ -287,9 +285,9 @@ let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list =
                                          Ins("ret")]
     let functions = 
         List.choose (function 
-                         | Fundec (rTy, name, argTy, body) 
+                         | DFundec (rTy, name, argTy, body,info) 
                                     -> Some (compilefun (rTy, name, argTy, body))
-                         | Vardec _ -> None)
+                         | DVardec _ -> None)
                     topdecs 
     let (mainlab, _, mainparams) = lookup funEnv "main"
     let argc = List.length mainparams
