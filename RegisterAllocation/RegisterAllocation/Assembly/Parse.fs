@@ -10,10 +10,10 @@ open Absyn
 
 (* Plain parsing from a string, with poor error reporting *)
 
-let fromString (str : string) : program =
+let fromString (str : string)  =
     let lexbuf = LexBuffer<char>.FromString(str)
     try 
-      CPar.Main CLex.Token lexbuf |> Rename.renameVars
+      CPar.Main CLex.Token lexbuf |> Rename.renameVars |> Allocate.livenessAnotator
     with 
       | exn -> let pos = lexbuf.EndPos 
                failwithf "%s near line %d, column %d\n" 
@@ -25,7 +25,7 @@ let fromFile (filename : string) =
     use reader = new StreamReader(filename)
     let lexbuf = LexBuffer<char>.FromTextReader reader
     try 
-      CPar.Main CLex.Token lexbuf |> Rename.renameVars
+      CPar.Main CLex.Token lexbuf |> Rename.renameVars |> Allocate.livenessAnotator
     with 
       | exn -> let pos = lexbuf.EndPos 
                failwithf "%s in file %s near line %d, column %d\n" 

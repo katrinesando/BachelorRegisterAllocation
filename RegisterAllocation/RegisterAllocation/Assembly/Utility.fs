@@ -46,24 +46,3 @@ let bindParam (env, fdepth) (typ, x)  : varEnv =
 
 let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
     List.fold bindParam (env, fdepth) paras
-  
-    
-let expandEnv kind (typ, x) (env,depth) =
-    match typ with
-    | TypA(TypA _, _) -> raise (Failure "expandEnv: array of arrays not permitted")
-    | TypA(_, Some i) -> ((x, (kind (depth), typ)) :: env, depth)
-    | _ -> ((x, (kind depth, typ)) :: env, depth)  
-let makeEnvs (topdecs : topdec list) : varEnv * funEnv * Map<int, string list> = 
-    let rec addv decs varEnv funEnv map = 
-        match decs with 
-        | []         -> (varEnv, funEnv, map)
-        | dec::decr  -> 
-          match dec with
-          | Vardec (typ, var) ->
-            let varEnv1         = expandEnv Glovar (typ, var) varEnv
-            let newmap = addToMap (snd varEnv1) var map
-            let (varEnvr, funEnvr, m) = addv decr varEnv1 funEnv newmap
-            (varEnvr, funEnvr, m)
-          | Fundec (tyOpt, f, xs, body) ->
-            addv decr varEnv ((f, ("_" + f, tyOpt, xs)) :: funEnv) map
-    addv topdecs ([], 0) [] Map.empty

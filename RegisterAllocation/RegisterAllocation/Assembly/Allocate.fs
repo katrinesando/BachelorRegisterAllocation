@@ -2,6 +2,7 @@
 
 open Absyn
 open DecorAbsyn
+open Microsoft.VisualBasic.CompilerServices
 open Utility
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
@@ -31,7 +32,9 @@ let temporaries =
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
-
+let removeFromLiveList lst elem =
+     List.filter (fun n -> n<>elem) lst
+     
 (* Get temporary register not in pres; throw exception if none available *)
 let getTemp pres : reg64 option =
     let rec aux available =
@@ -53,57 +56,105 @@ let getTempFor (pres : reg64 list) : reg64 =
    keeps track of next available offset for local variables *)
 
 
-let rec aStmt stmt (env, depth as varEnv) funEnv map : dstmt<'a> =
+let rec aStmt stmt lst =
     match stmt with
     | If(e, stmt1, stmt2) ->
-        let ex = aExpr e varEnv funEnv map 
-        let thenStmt = aStmt stmt1 (env, depth+1) funEnv map
-        let elseStmt = aStmt stmt2 (env, depth+1) funEnv map
-        DIf(ex, thenStmt, elseStmt, ()) //TODO change () with actual liveness info 
-    | While(e, body) ->failwith "not implemented"
-    | Expr e -> failwith "not implemented"
-    | Block stmts -> failwith "not implemented"
-    | Return None ->failwith "not implemented"
-    | Return (Some e) -> failwith "not implemented"
+        let (elseStmt, lst1) = aStmt stmt2 lst
+        let (thenStmt, lst2) = aStmt stmt1 lst1
+        let ex,newlist = aExpr e lst2
+        DIf(ex, thenStmt, elseStmt, lst), newlist
+    | While(e, body) ->
+        let newbody, lst1 = aStmt body lst
+        let ex, newlist = aExpr e lst1
+        DWhile(ex,newbody, lst), newlist
+    | Expr e ->
+        let ex, newlist = aExpr e lst
+        DExpr(ex,newlist), newlist
+    | Block stmts ->
+        let rec loop rest (accStmts, accLive as acc) =
+            match rest with
+            |[] -> acc
+            |x::xs ->
+                let newstmt, list = aStmtOrDec x accLive
+                loop xs (newstmt::accStmts, list)
+        let (stmtLst, newlist) = loop (List.rev stmts) ([],lst)
+        DBlock(stmtLst, lst),newlist
+    | Return None -> DReturn(None, lst), lst
+    | Return (Some e) ->
+        let ex, newlist = aExpr e lst
+        DReturn(Some ex, lst), newlist
   
-and aStmtOrDec stmtOrDec varEnv funEnv map  =
+and aStmtOrDec stmtOrDec lst  =
     match stmtOrDec with 
-    | Stmt stmt    -> (DStmt(aStmt stmt varEnv funEnv map,()), map)//TODO change () with actual liveness info
+    | Stmt stmt    ->
+        let newstmt, newlist = aStmt stmt lst
+        (DStmt(newstmt), newlist)
     | Dec (typ, x) ->
-        let newmap = addToMap (snd varEnv) x map
-        (DDec(typ, x, ()), newmap)//TODO change () with actual liveness info
+        let newlist = removeFromLiveList lst x
+        DDec(typ, x),newlist
     
-and aExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) map = 
+and aExpr (e : expr) lst = 
     match e with
-    | Access acc     ->failwith "not implemented"
-    | Assign(acc, e) -> failwith "not implemented"
-    | CstI i         -> failwith "not implemented"
-    | Prim1(ope, e)  ->        failwith "not implemented"
-    | Prim2 (ope, e1, e2) ->failwith "not implemented"
-    | Andalso(e1,e2)   ->failwith "not implemented"
-    | Orelse(e1, e2) ->failwith "not implemented"
-    | Call(name, lst) ->failwith "not implemented"
-and aAccess access varEnv funEnv map  =
+    | Access acc     ->
+        let newAcc, newlst = aAccess acc lst
+        Access newAcc, newlst
+    | Assign(acc, e) ->
+        let newAcc, accLst = aAccess acc lst
+        let newExpr,newlst = aExpr e accLst
+        Assign (newAcc,newExpr), newlst
+    | Addr acc         ->
+         let newAcc, newlst = aAccess acc lst
+         Addr newAcc, newlst
+    | CstI i         -> CstI i,lst
+    | Prim1(ope, e)  ->
+        let newExpr, newlst = aExpr e lst
+        Prim1(ope, newExpr), newlst
+    | Prim2 (ope, e1, e2) ->
+        let newExpr1, lst1 = aExpr e1 lst
+        let newExpr2, newlst = aExpr e2 lst1
+        Prim2(ope, newExpr1, newExpr2), newlst
+    | Andalso(e1,e2)   ->
+        let newExpr1, lst1 = aExpr e1 lst
+        let newExpr2, newlst = aExpr e2 lst1
+        Andalso(newExpr1, newExpr2), newlst
+    | Orelse(e1, e2) ->
+        let newExpr1, lst1 = aExpr e1 lst
+        let newExpr2, newlst = aExpr e2 lst1
+        Orelse(newExpr1, newExpr2), newlst
+    | Call(name, param) ->
+        let rec loop rest acc =
+            match rest with
+            | [] -> acc
+            | x::xs ->
+                let newExpr, newlst = aExpr x acc
+                loop xs newlst
+        let newlst = (loop param lst)
+        Call(name,param), newlst
+and aAccess access lst  =
   match access with
-  | AccVar x            ->failwith "not implemented"
-  | AccDeref e          ->failwith "not implemented"
-  | AccIndex (acc, idx) ->failwith "not implemented"
+  | AccVar x            ->
+      AccVar x, (x::lst)  //adds live variable to list
+  | AccDeref e          ->
+      let newExpr, newLst = aExpr e lst
+      AccDeref newExpr, newLst
+  | AccIndex (acc, idx) ->
+      let newExpr, exprLst = aExpr idx lst
+      let newAcc, newLst = aAccess acc exprLst
+      AccIndex(newAcc, newExpr), newLst
 
-
-let livenessAnotator prog =
-    let ((varEnv,_),funEnv, m) = makeEnvs prog 
-    let rec aux res (dtree as acc) =
+let livenessAnotator (Prog prog) =
+    let rec aux res (dtree,livelist as acc) =
         match res with
-        | [] -> List.rev dtree
+        | [] -> dtree
         | x :: xs ->
             match x with
             | Vardec(t, name) ->
-                aux xs (DVardec(t,name,()) :: dtree) //TODO change () with actual liveness info
+                let newlist = removeFromLiveList livelist name
+                aux xs (DVardec(t,name,livelist) :: dtree,newlist) 
             | Fundec(rtyp, name, args, body) ->
-                let (_,_,paras) = lookup funEnv name
-                let locEnv = bindParams paras (varEnv,0)
-                let decoratedBody = aStmt body locEnv funEnv m
-                aux xs (DFundec(rtyp,name,args,decoratedBody, ())::dtree) //TODO change () with actual liveness info
-    aux prog []
+                let (decoratedBody,stmtList) = aStmt body livelist
+                let newlist = List.fold (fun acc elem -> removeFromLiveList acc (snd elem)) stmtList args
+                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
+    DProg(aux (List.rev prog) ([],[])) //starts from the bottom of the program
 
 
