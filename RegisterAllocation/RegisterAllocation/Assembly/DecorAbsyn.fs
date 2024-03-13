@@ -18,8 +18,8 @@ type dstmt<'info> =
   | DBlock of stmtordec<'info> list * 'info            (* Block: grouping and scope   *)
                                                                    
 and stmtordec<'info> =                                                    
-  | DDec of typ * string            (* Local variable declaration  *)
-  | DStmt of dstmt<'info>                        (* A statement                 *)
+  | DDec of typ * string * 'info           (* Local variable declaration  *)
+  | DStmt of dstmt<'info> * 'info                       (* A statement                 *)
 
 and topdec<'info> = 
   | DFundec of typ option * string * (typ * string) list * dstmt<'info> * 'info   

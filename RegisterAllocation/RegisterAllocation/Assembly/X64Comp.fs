@@ -131,8 +131,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
 
 and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) : varEnv * x86 list = 
     match stmtOrDec with 
-    | DStmt stmt    -> (varEnv, cStmt stmt varEnv funEnv) 
-    | DDec (typ, x) -> allocate Locvar (typ, x) varEnv
+    | DStmt (stmt,info)    -> (varEnv, cStmt stmt varEnv funEnv) 
+    | DDec (typ, x,info) -> allocate Locvar (typ, x) varEnv
 
 (* Compiling micro-C expressions: 
 
