@@ -18,7 +18,7 @@ let nl = CstI 10
 let mutable counter = 0
 let varAssign name = 
     counter <- counter+1
-    name+(string counter)
+    name+"/"+(string counter)
 
 
 # 24 "CPar.fs"
@@ -1056,7 +1056,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 150 "CPar.fsy"
-                                                               AccVar _1           
+                                                               AccVar (_1+"/")           
                    )
 # 150 "CPar.fsy"
                  : 'Access));

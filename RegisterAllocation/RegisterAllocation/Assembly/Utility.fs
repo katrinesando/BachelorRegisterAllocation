@@ -20,7 +20,6 @@ let rec lookup env x =
     | (y, v)::yr -> if x=y then v else lookup yr x
 
 let rec lookupInMap depth (name : string) m =
-    let rex = Regex (name+"[0-9]+",RegexOptions.Compiled)
     if depth >= 0 then
         match Map.tryFind depth m with
         | None -> lookupInMap (depth-1) name m
@@ -28,7 +27,7 @@ let rec lookupInMap depth (name : string) m =
                 let rec aux rest  = 
                     match rest with
                     |[] ->  lookupInMap (depth-1) name m 
-                    |(n:string)::xs -> if rex.IsMatch n then n else aux xs
+                    |(n:string)::xs -> if n.StartsWith(name) then n else aux xs
                 aux vars
     else
         failwith ("variable " + name + " not declared")
