@@ -3,7 +3,7 @@
 open Absyn
 open DecorAbsyn
 type reg64 =
-    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
+    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Dummy
 let fromReg reg =
     match reg with
     | Rax  -> "rax"
@@ -30,7 +30,7 @@ let temporaries =
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
-let removeFromLiveList lst elem =
+let removeFromList lst elem =
      List.filter (fun n -> n<>elem) lst
      
 (* Get temporary register not in pres; throw exception if none available *)
@@ -80,7 +80,7 @@ and aStmtOrDec stmtOrDec lst  =
         let newstmt, newlist = aStmt stmt lst
         (DStmt(newstmt), newlist)
     | Dec (typ, x) ->
-        let newlist = removeFromLiveList lst x
+        let newlist = removeFromList lst x
         DDec(typ, x),newlist
     
 and aExpr (e : expr) lst = 
@@ -143,12 +143,32 @@ let livenessAnotator (Prog prog) =
         | x :: xs ->
             match x with
             | Vardec(t, name) ->
-                let newlist = removeFromLiveList livelist name
+                let newlist = removeFromList livelist name
                 aux xs (DVardec(t,name,livelist) :: dtree,newlist) 
             | Fundec(rtyp, name, args, body) ->
                 let (decoratedBody,stmtList) = aStmt body livelist
-                let newlist = List.fold (fun acc elem -> removeFromLiveList acc (snd elem)) stmtList args
+                let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
                 aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
     DProg(aux (List.rev prog) ([],[])) //starts from the bottom of the program
 
+type node = string * reg64 //varname * colour
+type interferenceGraph = Map<string,node list>
 
+let rec addVarToGraph name graph liveness=
+    if Map.containsKey name graph then
+        graph
+    else
+        let newNode = node(name,Dummy)
+        let newLst = removeFromList liveness name
+        let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst) graph newLst
+        Map.fold (fun acc k lst ->
+            if mem k newLst then
+                Map.add k (newNode::lst) acc else acc) newGraph newGraph |>
+        Map.add name (List.fold (fun acc elem -> node(elem,Dummy)::acc) [] newLst) 
+let buildGraph (DProg prog) =
+    let rec loop rest acc =
+        match rest with
+        | DVardec(typ, name, liveness) ->
+            let rec aux 
+        
+    loop prog []
