@@ -2,8 +2,6 @@
 
 open Absyn
 open DecorAbsyn
-open Microsoft.VisualBasic.CompilerServices
-open Utility
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 
 let fromReg reg =
@@ -47,14 +45,6 @@ let getTempFor (pres : reg64 list) : reg64 =
     match getTemp pres with
     | None     -> failwith "no more registers, expression too complex"
     | Some reg -> reg
-
-
-(* Simple environment operations *)
-(* address relative to bottom of frame *)
-
-(* The variable environment keeps track of global and local variables, and 
-   keeps track of next available offset for local variables *)
-
 
 let rec aStmt stmt lst =
     match stmt with
