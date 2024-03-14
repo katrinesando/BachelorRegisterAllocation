@@ -196,6 +196,6 @@ let buildGraph (DProg prog) : interferenceGraph =
             match x with
             | DVardec(_, name, liveness) -> loop xs (addVarToGraph name acc liveness)
             | DFundec(_, _, _, body, liveness) ->
-                List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness |>
-                graphFromDStmt body
+                let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
+                loop xs (graphFromDStmt body newlst)  
     loop prog Map.empty
