@@ -136,57 +136,44 @@ and aAccess access lst  =
       let newAcc, newLst = aAccess acc exprLst
       AccIndex(newAcc, newExpr), newLst
 
-let livenessAnotator (Prog prog) =
-    let rec aux res (dtree,livelist as acc) =
-        match res with
-        | [] -> dtree
-        | x :: xs ->
-            match x with
-            | Vardec(t, name) ->
-                let newlist = removeFromList livelist name
-                aux xs (DVardec(t,name,newlist) :: dtree,newlist) 
-            | Fundec(rtyp, name, args, body) ->
-                let (decoratedBody,stmtList) = aStmt body livelist
-                let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
-                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
-    DProg(aux (List.rev prog) ([],[])) //starts from the bottom of the program
 
-type node = string * reg64 //varname * colour
+
+type node = string * int * reg64 //varname * degree *  colour
 type interferenceGraph = Map<string,node list>
 
-let rec addVarToGraph name graph liveness=
+let rec addVarToGraph name graph liveness degree =
     if Map.containsKey name graph then
         graph
     else
-        let newNode = node(name,Dummy)
+        let newNode = node(name,degree,Dummy)
         let newLst = removeFromList liveness name
-        let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst) graph newLst
+        let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst degree) graph newLst
         Map.fold (fun acc k lst ->
             if mem k newLst then
                 Map.add k (newNode::lst) acc else acc) newGraph newGraph |>
-        Map.add name (List.fold (fun acc elem -> node(elem,Dummy)::acc) [] newLst) 
+        Map.add name (List.fold (fun acc elem -> node(elem,degree,Dummy)::acc) [] newLst) 
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
     |DIf(_, s1, s2, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness |>
         graphFromDStmt s1 |> graphFromDStmt s2
     |DWhile(_, body, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness|>
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness|>
         graphFromDStmt body
     |DExpr(_, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness
     |DBlock(stmtordecs, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness |>
         List.fold (fun acc elem -> graphFromDStmtOrDec elem acc) <| stmtordecs
     |DReturn(_, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness
     
 and graphFromDStmtOrDec stmtOrDec graph =
     match stmtOrDec with
     | DStmt (dstmt,_) -> graphFromDStmt dstmt graph
     | DDec(_, name, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) graph liveness
 
 let buildGraph (DProg prog) : interferenceGraph =
     let rec loop rest acc =
@@ -194,8 +181,9 @@ let buildGraph (DProg prog) : interferenceGraph =
         | [] -> acc
         | x::xs ->
             match x with
-            | DVardec(_, name, liveness) -> loop xs (addVarToGraph name acc liveness)
+            | DVardec(_, name, liveness) -> loop xs (addVarToGraph name acc liveness (List.length liveness-1))
             | DFundec(_, _, _, body, liveness) ->
-                let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
-                loop xs (graphFromDStmt body newlst)  
+                let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness (List.length liveness-1)) acc liveness
+                loop xs (graphFromDStmt body newlst )  
     loop prog Map.empty
+    
