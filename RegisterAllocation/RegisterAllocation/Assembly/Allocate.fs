@@ -136,6 +136,20 @@ and aAccess access lst  =
       let newAcc, newLst = aAccess acc exprLst
       AccIndex(newAcc, newExpr), newLst
 
+let livenessAnotator (Prog prog) =
+    let rec aux res (dtree,livelist as acc) =
+        match res with
+        | [] -> dtree
+        | x :: xs ->
+            match x with
+            | Vardec(t, name) ->
+                let newlist = removeFromList livelist name
+                aux xs (DVardec(t,name,newlist) :: dtree,newlist) 
+            | Fundec(rtyp, name, args, body) ->
+                let (decoratedBody,stmtList) = aStmt body livelist
+                let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
+                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
+    DProg(aux (List.rev prog) ([],[])) //starts from the bottom of the program
 
 
 type node = string * int * reg64 //varname * degree *  colour
