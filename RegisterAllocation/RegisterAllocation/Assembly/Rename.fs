@@ -2,35 +2,39 @@
 
 open Absyn
 open Utility
-let rec rStmt stmt depth map =
+let rec rStmt stmt depth map counter =
     match stmt with
     | If(e, stmt1, stmt2) ->
         let ex = rExpr e depth map 
-        let thenStmt = rStmt stmt1 (depth+1)  map
-        let elseStmt = rStmt stmt2 (depth+1)  map
-        If(ex, thenStmt, elseStmt)  
+        let thenStmt, newCounter1 = rStmt stmt1 (depth+1)  map counter
+        let elseStmt, newCounter2 = rStmt stmt2 (depth+1)  map newCounter1 
+        If(ex, thenStmt, elseStmt), newCounter2  
     | While(e, body) ->
         let ex = rExpr e depth  map 
-        let newBody = rStmt body (depth+1)  map
-        While(ex, newBody)
-    | Expr e -> Expr(rExpr e depth map) 
+        let newBody, newCounter = rStmt body (depth+1) map counter
+        While(ex, newBody), newCounter
+    | Expr e -> Expr(rExpr e depth map), counter
     | Block stmts ->
-        let rec loop rest acc =
+        let rec loop rest acc c =
             match rest with
-            | [] -> List.rev (fst acc)
+            | [] -> List.rev (fst acc), c
             | r::res ->
-                let (s,newMap) = rStmtOrDec r (depth+1) (snd acc)
-                loop res (s:: fst acc,newMap)
-        Block(loop stmts ([],map))        
-    | Return None -> Return None
-    | Return (Some e) -> Return (Some (rExpr e depth map))
+                let (s,newMap), newCounter = rStmtOrDec r (depth+1) (snd acc) c
+                loop res (s:: fst acc,newMap) newCounter
+        let body, newCounter2 = loop stmts ([],map) counter
+        Block(body), newCounter2        
+    | Return None -> Return None, counter
+    | Return (Some e) -> Return (Some (rExpr e depth map)), counter
   
-and rStmtOrDec stmtOrDec depth map  =
+and rStmtOrDec stmtOrDec depth map counter =
     match stmtOrDec with 
-    | Stmt stmt    -> (Stmt(rStmt stmt depth map), map)
+    | Stmt stmt    ->
+        let stmt, newCounter = rStmt stmt depth map counter
+        (Stmt(stmt), map), newCounter
     | Dec (typ, x) ->
-        let newmap = addToMap depth x map
-        (Dec(typ, x), newmap)
+        let newName = x + string counter 
+        let newmap = addToMap depth newName map
+        (Dec(typ, newName), newmap), counter+1
     
 and rExpr (e : expr) depth map = 
     match e with
@@ -67,19 +71,22 @@ and rAccess access depth map  =
 
 (*function arguments are depth 1*)
 let addFunArgsToMap args map =
-    List.fold (fun acc arg -> addToMap 1 (snd arg) acc) map args
+    List.fold (fun m arg -> addToMap 1 (snd arg) m) map args
 
-let renameVars (Prog prog) = 
-    let rec aux res (tree,map) =
+let renameVars (Prog prog) =
+    let rec aux res (tree,map) counter =
         match res with
         | [] -> List.rev tree
         | x :: xs ->
             match x with
             | Vardec(t, name) ->
-                let newMap = addToMap 0 name map
-                aux xs (Vardec(t,name) :: tree, newMap) 
+                let newName = (name + string counter)
+                let newMap = addToMap 0 newName map
+                aux xs (Vardec(t,newName) :: tree, newMap) (counter+1)
             | Fundec(rtyp, name, args, body) ->
-                let newMap = addFunArgsToMap args map
-                let newBody = rStmt body 1 newMap
-                aux xs (Fundec(rtyp,name,args,newBody)::tree,newMap)
-    Prog (aux prog ([],Map.empty))
+                let renamedArgs, newCounter1 =
+                    List.fold (fun (lst, c) (typ, name) -> (typ,name + string c) :: lst, c+1) ([], counter) args 
+                let newMap= addFunArgsToMap renamedArgs map
+                let newBody,newCounter2 = rStmt body 1 newMap newCounter1
+                aux xs (Fundec(rtyp,name,renamedArgs,newBody)::tree,newMap) newCounter2
+    Prog (aux prog ([],Map.empty) 0)
