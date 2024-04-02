@@ -14,6 +14,8 @@ type varEnv = (var * typ) env * int
 type paramdecs = (typ * string) list
 type funEnv = (flabel * typ option * paramdecs) env
 
+let removeFromList lst elem =
+     List.filter (fun n -> n<>elem) lst
 let rec lookup env x = 
     match env with 
     | []         -> failwith (x + " not found")

@@ -27,6 +27,7 @@
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\DecorAbsyn.fs" />
         <Compile Include="Assembly\Allocate.fs" />
+        <Compile Include="Assembly\Decorate.fs" />
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\X64.fs" />
         <Content Include="Assembly\try1" />
