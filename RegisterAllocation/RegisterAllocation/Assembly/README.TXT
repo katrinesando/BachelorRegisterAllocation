@@ -15,7 +15,7 @@ B. To compile the nasm-generating micro-C compiler and use it.
    
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
-   fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs
+   fsharpi -r FsLexYacc.Runtime.dll Absyn.fs DecorAbsyn.fs Decorate.fs CPar.fs CLex.fs Parse.fs Allocate.fs X64.fs X64Comp.fs ParseAndComp.fs
 
    open ParseAndComp;;
    compileToFile (fromFile "mcexamples\print_num.c") "print_num.asm";;
