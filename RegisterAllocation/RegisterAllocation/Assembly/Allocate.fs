@@ -9,7 +9,7 @@ type reg64 =
 (* The 13 registers that can be used for temporary values in i386.
 Allowing RDX requires special handling across IMUL and IDIV *)
 let temporaries =
-    [Rcx; Rdx; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
+    [Rcx; Rdx]//; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
@@ -68,6 +68,8 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
                         | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) g
                         | None -> acc ) g adjList
 
+//let sortList graph =
+    
 
 (* Helper function for searching in the interference graph *)
 let simplify (graph : interferenceGraph) =
@@ -81,17 +83,18 @@ let simplify (graph : interferenceGraph) =
                     let newGraph = decrementDegree g adjList 
                     Map.remove name newGraph, (name,cl,adjList)::stack, if degree > mindeg then degree else mindeg
                     else
-                        if min < k then
+                        if min <= k then
                             g,stack, min
                             else
                                 let newGraph = decrementDegree g adjList
                                 //Reset mindeg after spilling
                                 Map.remove name newGraph, (name,Spill,adjList)::stack,mindeg) (graph,[], mindeg) graph
+            
             if degree > mindeg then
                 aux ng ns degree
                 else
                     aux ng ns mindeg
-    aux graph [] (k-1)
+    aux graph [] k
     
     
    

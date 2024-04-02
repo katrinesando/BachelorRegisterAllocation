@@ -62,25 +62,6 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let newEnv = ((x, (kind fdepth, typ)) :: env, fdepth+1)
       let code = [Ins "sub rsp, 8"] //4 originalt
       (newEnv, code)
-
-let fromReg reg =
-    match reg with
-    | Rax  -> "rax"
-    | Rcx  -> "rcx"
-    | Rdx  -> "rdx"
-    | Rbx  -> "rbx"
-    | Rsi  -> "rsi"
-    | Rdi  -> "rdi"
-    | Rsp  -> "rsp"
-    | Rbp  -> "rbp"
-    | R8   -> "r8"
-    | R9   -> "r9"
-    | R10  -> "r10"
-    | R11  -> "r11"
-    | R12  -> "r12"
-    | R13  -> "r13"
-    | R14  -> "r14"
-    | R15  -> "r15"
      
 (* Get temporary register not in pres; throw exception if none available *)
 let getTemp pres : reg64 option =
