@@ -81,13 +81,6 @@ let fromReg reg =
     | R13  -> "r13"
     | R14  -> "r14"
     | R15  -> "r15"
-
-(* The 13 registers that can be used for temporary values in i386.
-Allowing RDX requires special handling across IMUL and IDIV *)
-let temporaries =
-    [Rcx; Rdx; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
-
-
      
 (* Get temporary register not in pres; throw exception if none available *)
 let getTemp pres : reg64 option =
