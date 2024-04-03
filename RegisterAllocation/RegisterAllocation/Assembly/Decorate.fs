@@ -44,30 +44,30 @@ and aExpr (e : expr) lst =
     match e with
     | Access acc     ->
         let newAcc, newlst = aAccess acc lst
-        Access newAcc, newlst
+        DAccess newAcc, newlst
     | Assign(acc, e) ->
         let newAcc, accLst = aAccess acc lst
         let newExpr,newlst = aExpr e accLst
-        Assign (newAcc,newExpr), newlst
+        DAssign (newAcc,newExpr), newlst
     | Addr acc         ->
          let newAcc, newlst = aAccess acc lst
-         Addr newAcc, newlst
-    | CstI i         -> CstI i,lst
+         DAddr newAcc, newlst
+    | CstI i         -> DCstI (i, lst),lst
     | Prim1(ope, e)  ->
         let newExpr, newlst = aExpr e lst
-        Prim1(ope, newExpr), newlst
+        DPrim1(ope, newExpr), newlst
     | Prim2 (ope, e1, e2) ->
         let newExpr1, lst1 = aExpr e1 lst
         let newExpr2, newlst = aExpr e2 lst1
-        Prim2(ope, newExpr1, newExpr2), newlst
+        DPrim2(ope, newExpr1, newExpr2), newlst
     | Andalso(e1,e2)   ->
         let newExpr1, lst1 = aExpr e1 lst
         let newExpr2, newlst = aExpr e2 lst1
-        Andalso(newExpr1, newExpr2), newlst
+        DAndalso(newExpr1, newExpr2), newlst
     | Orelse(e1, e2) ->
         let newExpr1, lst1 = aExpr e1 lst
         let newExpr2, newlst = aExpr e2 lst1
-        Orelse(newExpr1, newExpr2), newlst
+        DOrelse(newExpr1, newExpr2), newlst
     | Call(name, param) ->
         let rec loop rest acc =
             match rest with
@@ -76,22 +76,22 @@ and aExpr (e : expr) lst =
                 let newExpr, newlst = aExpr x acc
                 loop xs newlst
         let newlst = (loop param lst)
-        Call(name,param), newlst
-and aAccess access lst  =
+        DCall(name,param), newlst
+and aAccess access outLst  =
   match access with
   | AccVar x            ->
-      if List.contains x lst
-      then
-        AccVar x,lst
+      if List.contains x outLst then
+        DAccVar (x,(outLst,outLst)),outLst
       else
-        AccVar x, (x::lst)  //adds live variable to list
+        let inLst = (x::outLst)
+        DAccVar (x,(inLst,outLst)), inLst  //adds live variable to list
   | AccDeref e          ->
-      let newExpr, newLst = aExpr e lst
-      AccDeref newExpr, newLst
+      let newExpr, inLst = aExpr e outLst
+      DAccDeref (newExpr,(inLst,outLst)), inLst
   | AccIndex (acc, idx) ->
-      let newExpr, exprLst = aExpr idx lst
-      let newAcc, newLst = aAccess acc exprLst
-      AccIndex(newAcc, newExpr), newLst
+      let newExpr, exprLst = aExpr idx outLst
+      let newAcc, inLst = aAccess acc exprLst
+      DAccIndex(newAcc, newExpr,(inLst,outLst)), inLst
 
 let livenessAnotator (Prog prog) =
     let rec aux res (dtree,livelist as acc) =
