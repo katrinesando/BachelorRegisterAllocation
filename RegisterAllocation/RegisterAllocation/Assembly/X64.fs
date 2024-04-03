@@ -80,7 +80,6 @@ let operand rand : string =
 let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
 
 (* Preserve reg across code, on the stack if necessary *)
-(* Maybe move to Allocate.fs if spilling needs it*)
 let preserve reg pres code =
     if mem reg pres then
        pushAndPop reg code

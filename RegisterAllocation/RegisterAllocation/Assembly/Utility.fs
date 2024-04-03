@@ -1,6 +1,5 @@
 ﻿module Utility
 open Absyn
-open System.Text.RegularExpressions
 
 let fromReg reg =
     match reg with

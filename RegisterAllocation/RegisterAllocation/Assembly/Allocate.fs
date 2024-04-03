@@ -1,5 +1,6 @@
 ﻿module Allocate
 
+open System
 open Utility
 open DecorAbsyn
 
@@ -67,35 +68,41 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
                         match Map.tryFind elem g with
                         | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) g
                         | None -> acc ) g adjList
-
-//let sortList graph =
-    
+  
 
 (* Helper function for searching in the interference graph *)
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
-    let rec aux g stack mindeg =
-        match g with
-        | _ when Map.count g = 0 -> stack
-        | _ ->
-            let ng,ns, degree = Map.fold (fun (g, stack, min) name (degree,cl,adjList) ->    
+    let mins = Map.fold (fun (_,min as acc) name (deg,_,_) ->
+                        if deg < min then (name,deg) else acc)
+    let rec aux g stack (minname, mindeg) =
+        match Map.tryFind minname g with
+        | None-> stack
+        | Some(degree, cl, adjList) ->
+                let newGraph = decrementDegree g adjList |> Map.remove minname
+                let newMins = mins (minname,Int32.MaxValue) newGraph
                 if degree < k then
-                    let newGraph = decrementDegree g adjList 
-                    Map.remove name newGraph, (name,cl,adjList)::stack, if degree > mindeg then degree else mindeg
-                    else
-                        if min <= k then
-                            g,stack, min
-                            else
-                                let newGraph = decrementDegree g adjList
-                                //Reset mindeg after spilling
-                                Map.remove name newGraph, (name,Spill,adjList)::stack,mindeg) (graph,[], mindeg) graph
+                    aux newGraph ((minname,cl,adjList)::stack) newMins
+                    else aux newGraph ((minname,Spill,adjList)::stack) newMins    
             
-            if degree > mindeg then
-                aux ng ns degree
-                else
-                    aux ng ns mindeg
-    aux graph [] k
+    aux graph [] (mins ("",Int32.MaxValue) graph)
     
-    
+let rebuildAndColour stack =
+    let rec aux s graph =
+        match s with
+        | [] -> graph
+        | (name, Dummy, lst) :: ns ->
+            let toExclude = List.fold (fun acc node ->
+                       match Map.tryFind node graph with
+                       | None -> acc
+                       | Some col -> col :: acc) [] lst 
+            let regToUse = List.except toExclude temporaries |> List.head
+            Map.add name regToUse graph |>
+            aux ns
+        | (name, Spill, _) :: ns ->
+            Map.add name Spill graph |>
+            aux ns
+        | _ -> failwith "something went wrong"
+    aux stack Map.empty
    
-    
+let regAlloc prog = buildGraph prog |> simplify |> rebuildAndColour 
