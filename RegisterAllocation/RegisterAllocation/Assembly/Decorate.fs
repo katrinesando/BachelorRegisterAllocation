@@ -80,11 +80,11 @@ and aExpr (e : expr) lst =
 and aAccess access lst  =
   match access with
   | AccVar x            ->
-      if List.contains x lst |> not
+      if List.contains x lst
       then
-        AccVar x, (x::lst)  //adds live variable to list
-      else
         AccVar x, (lst)
+      else
+        AccVar x, (x::lst)  //adds live variable to list
   | AccDeref e          ->
       let newExpr, newLst = aExpr e lst
       AccDeref newExpr, newLst
