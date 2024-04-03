@@ -82,7 +82,7 @@ and aAccess access lst  =
   | AccVar x            ->
       if List.contains x lst
       then
-        AccVar x, (lst)
+        AccVar x,lst
       else
         AccVar x, (x::lst)  //adds live variable to list
   | AccDeref e          ->

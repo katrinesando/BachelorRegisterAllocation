@@ -25,10 +25,10 @@ and daccess<'info> =
   | DAccDeref of dexpr<'info>                  (* Pointer dereferencing  *p   *)
   | DAccIndex of daccess<'info> * dexpr<'info> * 'info       (* Array indexing         a[e] *)
 and dstmt<'info> =                                                     
-  | DIf of expr * dstmt<'info> * dstmt<'info> * 'info           (* Conditional                 *)
-  | DWhile of expr * dstmt<'info> * 'info                (* While loop                  *)
-  | DExpr of expr * 'info                        (* Expression statement   e;   *)
-  | DReturn of expr option * 'info               (* Return from method          *)
+  | DIf of dexpr<'info> * dstmt<'info> * dstmt<'info> * 'info           (* Conditional                 *)
+  | DWhile of dexpr<'info> * dstmt<'info> * 'info                (* While loop                  *)
+  | DExpr of dexpr<'info> * 'info                        (* Expression statement   e;   *)
+  | DReturn of dexpr<'info> option * 'info               (* Return from method          *)
   | DBlock of stmtordec<'info> list * 'info            (* Block: grouping and scope   *)
                                                                    
 and stmtordec<'info> =                                                    
