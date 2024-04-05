@@ -75,23 +75,6 @@ let operand rand : string =
         | Glovars  -> "[glovars]"
 
 
-
-//Might run into problems with push and pop with 64-bit nasm (might be a bug that's fixed though)
-let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
-
-(* Preserve reg across code, on the stack if necessary *)
-let preserve reg pres code =
-    if mem reg pres then
-       pushAndPop reg code
-    else
-        code
-
-(* Preserve all live registers around code, eg a function call *)
-let rec preserveAll pres code =
-    match pres with
-    | []          -> code
-    | reg :: rest -> preserveAll rest (pushAndPop reg code)
-
 (* Generate new distinct labels *)
 
 let (resetLabels, newLabel) = 
