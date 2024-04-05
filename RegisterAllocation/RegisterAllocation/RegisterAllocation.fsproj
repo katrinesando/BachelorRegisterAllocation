@@ -70,6 +70,11 @@
         <Content Include="Assembly\mcexamples\ex11.o" />
         <ClCompile Include="Assembly\mcexamples\name.c" />
         <ClCompile Include="Assembly\mcexamples\ex_graph.c" />
+        <ClCompile Include="Assembly\mcexamples\test0.c" />
+        <ClCompile Include="Assembly\mcexamples\test1.c" />
+        <ClCompile Include="Assembly\mcexamples\test2.c" />
+        <ClCompile Include="Assembly\mcexamples\test3.c" />
+        <ClCompile Include="Assembly\mcexamples\test4.c" />
     </ItemGroup>
 
 </Project>

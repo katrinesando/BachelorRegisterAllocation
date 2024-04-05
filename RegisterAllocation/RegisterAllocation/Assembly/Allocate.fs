@@ -70,7 +70,6 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
                         | None -> acc ) g adjList
   
 
-(* Helper function for searching in the interference graph *)
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
     let mins = Map.fold (fun (_,min as acc) name (deg,_,_) ->
