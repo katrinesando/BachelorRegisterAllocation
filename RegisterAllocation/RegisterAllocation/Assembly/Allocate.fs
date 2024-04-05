@@ -4,13 +4,8 @@ open System
 open Utility
 open DecorAbsyn
 
-type reg64 =
-    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
-
 (* The 13 registers that can be used for temporary values in x86-64.
 Allowing RDX requires special handling across IMUL and IDIV *)
-let temporaries =
-    [Rcx; Rdx]//; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
 
 let mem x xs = List.exists (fun y -> x=y) xs
 
@@ -92,13 +87,11 @@ let rebuildAndColour stack =
         match s with
         | [] -> graph
         | (name, Dummy, lst) :: ns ->
-            let toExclude = List.fold (fun acc node ->
-                       match Map.tryFind node graph with
-                       | None -> acc
-                       | Some col -> col :: acc) [] lst 
-            let regToUse = List.except toExclude temporaries |> List.head
-            Map.add name regToUse graph |>
-            aux ns
+            match getUnusedRegister graph lst with
+            |None -> failwith "something went wrong in colouring"
+            | Some reg ->
+                Map.add name reg graph |>
+                aux ns
         | (name, Spill, _) :: ns ->
             Map.add name Spill graph |>
             aux ns

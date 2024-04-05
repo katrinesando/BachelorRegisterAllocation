@@ -1,6 +1,9 @@
 ﻿module Utility
 open Absyn
 
+
+type reg64 =
+    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
 let fromReg reg =
     match reg with
     | Rax  -> "rax"
@@ -19,6 +22,9 @@ let fromReg reg =
     | R13  -> "r13"
     | R14  -> "r14"
     | R15  -> "r15"
+
+let temporaries =
+    [Rcx; Rdx]//; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] 
 
 type flabel = string
 type 'data env = (string * 'data) list
@@ -66,3 +72,11 @@ let bindParam (env, fdepth) (typ, x)  : varEnv =
 
 let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
     List.fold bindParam (env, fdepth) paras
+    
+let getUnusedRegister graph lst =
+    let toExclude = List.fold (fun acc node ->
+                       match Map.tryFind node graph with
+                       | None -> acc
+                       | Some col -> col :: acc) [] lst 
+    let l = List.except toExclude temporaries
+    if List.length l <> 0 then Some (List.head l) else None
