@@ -32,13 +32,14 @@ let rec aStmt stmt lst =
         DReturn(Some ex, lst), newlist
   
 and aStmtOrDec stmtOrDec lst  =
+    let tempRemoved = List.filter(fun (elem:string) -> if (elem.StartsWith "/") then false else true ) lst //for simplicity all temp are removed from liveness
     match stmtOrDec with 
     | Stmt stmt    ->
-        let newstmt, newlist = aStmt stmt lst
-        (DStmt(newstmt,lst), newlist)
+        let newstmt, newlist = aStmt stmt tempRemoved
+        (DStmt(newstmt,tempRemoved), newlist)
     | Dec (typ, x) ->
-        let newlist = removeFromList lst x
-        DDec(typ, x, lst),newlist
+        let newlist = removeFromList tempRemoved x
+        DDec(typ, x, tempRemoved),newlist
     
 and aExpr (e : expr) lst = 
     match e with
@@ -77,6 +78,14 @@ and aExpr (e : expr) lst =
                 loop xs newlst
         let newlst = (loop param lst)
         Call(name,param), newlst
+    | Temp(name, e) ->
+        match e with
+        | Prim1("printc", _) | Prim1("printi", _) ->
+            let newExpr1, lst1 = aExpr e lst
+            newExpr1, lst1
+        | _ ->
+            let newExpr1, lst1 = aExpr e lst
+            Temp(name, newExpr1), name::lst1
 and aAccess access lst  =
   match access with
   | AccVar x            ->
