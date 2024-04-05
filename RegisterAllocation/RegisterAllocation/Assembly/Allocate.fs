@@ -7,7 +7,7 @@ open DecorAbsyn
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
 
-(* The 13 registers that can be used for temporary values in i386.
+(* The 13 registers that can be used for temporary values in x86-64.
 Allowing RDX requires special handling across IMUL and IDIV *)
 let temporaries =
     [Rcx; Rdx]//; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
