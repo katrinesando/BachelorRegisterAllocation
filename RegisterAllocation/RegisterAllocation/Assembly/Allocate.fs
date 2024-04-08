@@ -88,7 +88,7 @@ let rebuildAndColour stack =
         | [] -> graph
         | (name, Dummy, lst) :: ns ->
             match getUnusedRegister graph lst with
-            |None -> failwith "something went wrong in colouring"
+            | None -> failwith "something went wrong in colouring"
             | Some reg ->
                 Map.add name reg graph |>
                 aux ns
