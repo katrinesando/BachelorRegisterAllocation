@@ -1,4 +1,6 @@
 void main(int n)
 {
-   print 1;
+   int a;
+   a;
+   print (1&&2);
 }

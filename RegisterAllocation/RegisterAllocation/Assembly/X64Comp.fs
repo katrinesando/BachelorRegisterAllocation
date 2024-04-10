@@ -118,7 +118,8 @@ let makeGlobalEnvs (topdecs) : varEnv * funEnv * x86 list =
     addv topdecs ([], 0) []
 
 (* ------------------------------------------------------------------- *)
-let fst3 (a,_,_) = a
+let movToRetReg retReg curReg =
+    if curReg <> retReg then [Ins2 ("mov", Reg retReg, Reg curReg)] else []
 
 let prim1Code ope tr liveVars graph =
     match ope with
@@ -166,6 +167,10 @@ let pointerArithmeticCode ope tr tr' =
 let getAddrOfTemp name reg varEnv=
     match lookup (fst varEnv) name with
                 | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
+                | _ -> failwith "a temporary should not be a Glovar"
+let putValInAddrOfTemp name reg varEnv =
+    match lookup (fst varEnv) name with
+                | Locvar addr,_ -> [Ins2("mov", RbpOff (8*addr), Reg reg)]
                 | _ -> failwith "a temporary should not be a Glovar"
 
 (* Compiling micro-C statements *)
@@ -249,7 +254,9 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
     match e with
     | Access acc     ->
         let code,newEnv, tr = cAccess acc varEnv funEnv reg liveVars graph
-        code @ [Ins2("mov", Reg tr, Ind tr)],newEnv //TODO incorrect when value is already in register 
+        match code with
+        | [] -> movToRetReg reg tr,newEnv
+        | _ -> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
     | Assign(acc, e) ->
         let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
         match e with
@@ -270,8 +277,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
     | CstI i         ->
         [Ins2("mov", Reg reg, Cst i)],varEnv
     | Addr acc       ->
-        let code, env, _ = cAccess acc varEnv funEnv reg liveVars graph
-        code, env
+        let code, env, tr = cAccess acc varEnv funEnv reg liveVars graph
+        code @ movToRetReg reg tr, env
     | Prim1(ope, e1) ->
         let eCode, env1 = cExpr e1 varEnv funEnv reg liveVars graph           
         match e1 with
@@ -279,7 +286,9 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             match Map.find n graph with
             | Spill ->
                 eCode @ getAddrOfTemp n reg env1 @ prim1Code ope reg liveVars graph, env1
-            | r -> eCode @ prim1Code ope r liveVars graph, env1
+            | r ->
+                eCode @ prim1Code ope r liveVars graph
+                        @ movToRetReg reg r, env1
         | _ -> failwith "wrong abstract syntax in Prim1"
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; reg] else [reg]
@@ -301,7 +310,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let code = getAddrOfTemp n2 reg env2 @ prim2Code ope liveVars graph r reg
                 exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2
             | r1,r2 ->
-                exprCodes @ prim2Code ope liveVars graph r1 r2,env2
+                exprCodes @ prim2Code ope liveVars graph r1 r2
+                @ movToRetReg reg r1,env2
         | _ -> failwith "wrong abstract syntax in Prim2"
     | Andalso(e1, e2) ->
         //e2 should also be saved in tr
@@ -320,16 +330,16 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             | r, Spill ->
                 let code1 = getAddrOfTemp n1 r env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
-                                     @ e2Code @ [Label labend]           
+                                     @ e2Code @ [Label labend] @ movToRetReg reg r           
                 retCode,env2
             | Spill, r ->
                 let code2 = getAddrOfTemp n2 r env2
                 let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
-                                     @ e2Code @ code2 @ [Label labend]  
+                                     @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r  
                 retCode, env2
-            | r,_ ->
-                e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
-                     @ e2Code @ [Label labend],env2
+            | r1,r2 ->
+                e1Code @ [Ins2("cmp", Reg r1, Cst 0);Jump("jz", labend)]
+                     @ e2Code @ [Label labend] @ movToRetReg reg r2 ,env2
         | _ -> failwith "wrong abstract syntax in Andalso"        
     | Orelse(e1,e2) ->
         let labend = newLabel()
@@ -344,24 +354,24 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg reg, Cst 0);Jump("jnz", labend)]
                                                    @ e2Code @ code2 @ [Label labend]               
                 retCode, env2
-            | r, Spill ->
+            | r, Spill -> //TODO make sure the correct side of || is moved into reg
                 let code2 = getAddrOfTemp n2 r env2
                 let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
-                                     @ e2Code @ code2 @ [Label labend]  
+                                     @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r
                 retCode, env2
-            | Spill, r ->
+            | Spill, r -> //TODO make sure the correct side of || is moved into reg
                 let code1 = getAddrOfTemp n1 r env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
-                                 @ e2Code @ [Label labend]           
+                                 @ e2Code @ [Label labend] @ movToRetReg reg r   
                 retCode, env2
-            | r,_ ->
-                e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
-                         @ e2Code @ [Label labend],env2
+            | r1,r2 -> //TODO make sure the correct side of || is moved into reg
+                e1Code @ [Ins2("cmp", Reg r1, Cst 0);Jump("jnz", labend)]
+                         @ e2Code @ [Label labend] @ movToRetReg reg r2,env2
         | _ -> failwith "wrong abstract syntax in Orelse"        
     | Call(f, es) ->
         let code = callfun f es varEnv funEnv reg liveVars graph
         code,varEnv
-    | Temp(n, e) -> //TODO match on r if spill do stuff
+    | Temp(n, e) ->
         match Map.find n graph with
         | Spill ->
             let newEnv,code = allocate Locvar (TypI, n) varEnv
@@ -369,9 +379,12 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             | None ->
                 let tr = getTemp Dummy liveVars graph //getTemp always returns a register that is not spill.
                 let eCode,env1 = cExpr e newEnv funEnv tr liveVars graph
-                evictAndRestore n tr env1 eCode,env1
-            | Some r -> cExpr e newEnv funEnv r liveVars graph
+                code @ evictAndRestore n tr env1 (eCode @ putValInAddrOfTemp n tr env1),env1
+            | Some r ->
+                let eCode, env1 = cExpr e newEnv funEnv r liveVars graph
+                code @ eCode @ putValInAddrOfTemp n r env1, env1
         | r -> cExpr e varEnv funEnv r liveVars graph
+            
         
         
 (* Generate code to access variable, dereference pointer or index array: *)
