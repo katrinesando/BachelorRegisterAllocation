@@ -93,8 +93,8 @@ let rebuildAndColour stack =
             | Some reg ->
                 Map.add name reg graph |>
                 aux ns
-        | (name, Spill, _) :: ns ->
-            Map.add name Spill graph |>
+        | (name, Spill, lst) :: ns ->
+            Map.add name Spill graph |> //If everything is over k, everything is Spilled - look into fix for future
             aux ns
         | _ -> failwith "something went wrong"
     aux stack Map.empty
