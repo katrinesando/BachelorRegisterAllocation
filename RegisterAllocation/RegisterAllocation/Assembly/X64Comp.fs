@@ -86,8 +86,6 @@ let getTemp pres liveVars graph self =
     List.fold (fun toEvict elem ->
         let used = Map.find elem graph
         if not (mem used [pres;Dummy;Spill]) && (elem <> self) then used else toEvict) Rdx liveVars
-    
-let getRegFor graph name : reg64 = Map.find name graph
 
 
 (* ------------------------------------------------------------------- *)
@@ -158,7 +156,7 @@ let prim2Code ope liveVars graph tr tr' =
                       Ins(setcompbits);
                       Ins2("mov", Reg tr, Reg Rax)]
                | _     -> raise (Failure "unknown primitive 2")
-               
+     
 let pointerArithmeticCode ope tr tr' =
     match ope with //+/- need to be flipped due to how the stack grow towards lower addresses
     | "+" -> [Ins2("sal", Reg tr', Cst 3);Ins2("sub", Reg tr, Reg tr')]
@@ -173,16 +171,24 @@ let getAddrOfTemp name reg varEnv=
 (* Compiling micro-C statements *)
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list = //TODO wrap expression in statement in temps to get a register
     match stmt with
-    | DIf(e, stmt1, stmt2,info) -> 
+    | DIf(e, stmt1, stmt2,info) ->
         let labelse = newLabel()
         let labend  = newLabel()
-        let code,_ = cExpr e varEnv funEnv Rbx Dummy info graph
-        code @ [Ins2("cmp", Reg tr, Cst 0);
-           Jump("jz", labelse)] 
-        @ cStmt stmt1 varEnv funEnv graph
-        @ [Jump("jmp", labend)]
-        @ [Label labelse] @ cStmt stmt2 varEnv funEnv graph
-        @ [Label labend]           
+        let eCode,_ = cExpr e varEnv funEnv Rbx Dummy info graph
+        let ifCode = [Jump("jz", labelse)] 
+                    @ cStmt stmt1 varEnv funEnv graph @ [Jump("jmp", labend)]
+                    @ [Label labelse] @ cStmt stmt2 varEnv funEnv graph
+                    @ [Label labend]
+        match e with
+        | Temp(n, _) ->
+            match Map.find n graph with
+            | Spill ->
+                let tempReg = getTemp Dummy info graph n
+                eCode @ evictAndRestore n tempReg varEnv [Ins2("cmp", Reg tempReg, Cst 0)]
+                @ ifCode
+            | r -> 
+                eCode @ [Ins2("cmp", Reg r, Cst 0)] @ ifCode
+        | _ -> failwith "condition not in temp in If"
     | DWhile(e, body,info) ->
         let labbegin = newLabel()
         let labcondition  = newLabel()
