@@ -12,7 +12,7 @@ let mem x xs = List.exists (fun y -> x=y) xs
 type node = string //varname
 type interferenceGraph = Map<node,int * reg64 * node list> //name, degree * colour * node list
 
-let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) liveness=
+let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) liveness =
     if Map.containsKey name graph then
         graph
     else
@@ -20,9 +20,10 @@ let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) livenes
         let newLst = removeFromList liveness name
         let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst) graph newLst
         Map.fold (fun acc k (_,_,lst) ->
-            if mem k newLst then
-                Map.add k (0,Dummy,newNode::lst) acc else acc) newGraph newGraph |>
-        Map.add name (List.fold (fun (_,_,acc) elem -> (0,Dummy,(elem::acc))) (0,Dummy,[]) newLst) 
+            if mem k newLst && not (mem newNode lst) then 
+                Map.add k (0,Dummy,newNode::lst) acc 
+            else acc) newGraph newGraph |>
+        Map.add name (List.fold (fun (_,_,acc) elem -> (0,Dummy,(elem::acc))) (0,Dummy,[]) newLst) //adds all elem from newLst to adj of k
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
@@ -35,7 +36,7 @@ let rec graphFromDStmt dstmt graph =
     |DExpr(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
     |DBlock(stmtordecs, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |> //create graph
         List.fold (fun acc elem -> graphFromDStmtOrDec elem acc) <| stmtordecs
     |DReturn(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
@@ -78,7 +79,7 @@ let simplify (graph : interferenceGraph) =
                 let newMins = mins (minname,Int32.MaxValue) newGraph
                 if degree < k then
                     aux newGraph ((minname,cl,adjList)::stack) newMins
-                    else aux newGraph ((minname,Spill,adjList)::stack) newMins    
+                else aux newGraph ((minname,Spill,adjList)::stack) newMins    
             
     aux graph [] (mins ("",Int32.MaxValue) graph)
     
