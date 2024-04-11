@@ -415,6 +415,16 @@ and cAccess access varEnv funEnv reg liveVars graph =
     match access with 
     | AccVar x ->
       match lookup (fst varEnv) x with
+      | Glovar addr, TypA _ ->
+          match Map.find x graph with
+          | Spill ->
+              [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))],varEnv, reg
+          | r -> [Ins2("mov", Reg r, Glovars);Ins2("sub", Reg r, Cst (8*addr))],varEnv, r
+      | Locvar addr, TypA _->
+          match Map.find x graph with
+          | Spill ->
+              [Ins2("lea", Reg reg, RbpOff (8*addr))],varEnv, reg
+          | r -> [Ins2("lea", Reg r, RbpOff (8*addr))],varEnv, r
       | Glovar addr, _ ->
           match Map.find x graph with
           | Spill ->
