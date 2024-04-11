@@ -300,7 +300,14 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         [Ins2("mov", Reg reg, Cst i)],varEnv
     | Addr acc       ->
         let code, env, tr = cAccess acc varEnv funEnv reg liveVars graph
-        code @ movToRetReg reg tr, env
+        match code with
+        | [] ->
+            let name = List.fold(fun acc elem ->
+                if Map.find elem graph = tr then elem else acc) "" liveVars
+            match lookup (fst env) name with
+            | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))], env
+            | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))], env
+        | _  -> code @ movToRetReg reg tr, env
     | Prim1(ope, e1) ->
         let eCode, env1 = cExpr e1 varEnv funEnv reg liveVars graph           
         match e1 with
@@ -437,30 +444,35 @@ and cAccess access varEnv funEnv reg liveVars graph =
           | r -> [],varEnv, r
     | AccDeref e ->
         match e with
-        | Prim2(ope, e1, e2) -> //pointer arithmetic
-            let e1Code, env1 = cExpr e1 varEnv funEnv reg liveVars graph
-            let e2Code,env2 = cExpr e2 env1 funEnv reg liveVars graph
-            let exprCodes = e1Code @ e2Code
-            match e1,e2 with
-            | Temp(n1, _),Temp(n2, _) ->
-                match Map.find n1 graph, Map.find n2 graph with
-                | Spill,Spill->
-                    let tempReg2 = getTemp reg liveVars graph
-                    let code =  getAddrOfTemp n1 reg env2 @ getAddrOfTemp n2 tempReg2 env2
-                                @ pointerArithmeticCode ope reg tempReg2
-                    exprCodes @ evictAndRestore n2 tempReg2 env2 code,env2, reg //returns reg cause the result is there
-                | Spill,r->
-                    let code = getAddrOfTemp n1 reg env2 @ pointerArithmeticCode ope reg r
-                    exprCodes @ code, env2, reg
-                | r, Spill-> 
-                    let code = getAddrOfTemp n2 reg env2 @ pointerArithmeticCode ope r reg
-                    exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2, r
-                | r1,r2 ->
-                    exprCodes @ pointerArithmeticCode ope r1 r2, env2, r1
-            | _ -> failwith "wrong abstract syntax in AccDeref"
-        | _ ->
-            let code, env = cExpr e varEnv funEnv reg liveVars graph
-            code, env, reg
+        |Temp(n,expr) ->
+            match expr with 
+            | Prim2(ope, e1, e2) -> //pointer arithmetic
+                let e1Code, env1 = cExpr e1 varEnv funEnv reg liveVars graph
+                let e2Code,env2 = cExpr e2 env1 funEnv reg liveVars graph
+                let exprCodes = e1Code @ e2Code
+                match e1,e2 with
+                | Temp(n1, _),Temp(n2, _) ->
+                    match Map.find n1 graph, Map.find n2 graph with
+                    | Spill,Spill->
+                        let tempReg2 = getTemp reg liveVars graph
+                        let code =  getAddrOfTemp n1 reg env2 @ getAddrOfTemp n2 tempReg2 env2
+                                    @ pointerArithmeticCode ope reg tempReg2
+                        exprCodes @ evictAndRestore n2 tempReg2 env2 code,env2, reg //returns reg cause the result is there
+                    | Spill,r->
+                        let code = getAddrOfTemp n1 reg env2 @ pointerArithmeticCode ope reg r
+                        exprCodes @ code, env2, reg
+                    | r, Spill-> 
+                        let code = getAddrOfTemp n2 reg env2 @ pointerArithmeticCode ope r reg
+                        exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2, r
+                    | r1,r2 ->
+                        exprCodes @ pointerArithmeticCode ope r1 r2, env2, r1
+                | _ -> failwith "wrong abstract syntax for pointer arithmetic - should contain temp" 
+            | _ ->
+                let code, env = cExpr e varEnv funEnv reg liveVars graph
+                match Map.find n graph with
+                | Spill -> failwith "not implemented"
+                | addr     -> code @ [Ins2("mov", Reg reg, Ind addr)], env, reg
+        | _ -> failwith "wrong abstract syntax in AccDeref"
     | AccIndex(acc, idx) ->
       let accCode, env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
       let idxCode,env2 = cExpr idx env1 funEnv reg liveVars graph
