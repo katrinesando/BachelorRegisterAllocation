@@ -79,11 +79,11 @@ and aExpr (e : expr) lst =
         let newlst = (loop param lst)
         Call(name,param), newlst
     | Temp(name, e) ->
-        match e with
+        (*match e with
         | Prim1("printc", _) | Prim1("printi", _) ->
             let newExpr1, lst1 = aExpr e lst
             newExpr1, lst1
-        | _ ->
+        | _ ->*)
             let newExpr1, lst1 = aExpr e lst
             Temp(name, newExpr1), name::lst1
 and aAccess access lst  =

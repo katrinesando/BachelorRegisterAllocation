@@ -174,13 +174,13 @@ let putValInAddrOfTemp name reg varEnv =
                 | _ -> failwith "a temporary should not be a Glovar"
 
 (* Compiling micro-C statements *)
-let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list = //TODO wrap expression in statement in temps to get a register
+let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
     match stmt with
     | DIf(e, stmt1, stmt2,info) ->
         let labelse = newLabel()
         let labend  = newLabel()
-        let eCode,env = cExpr e varEnv funEnv Rbx info graph
-        let ifCode = [Jump("jz", labelse)] 
+        let ifCode env =
+                    [Jump("jz", labelse)] 
                     @ cStmt stmt1 env funEnv graph @ [Jump("jmp", labend)]
                     @ [Label labelse] @ cStmt stmt2 env funEnv graph
                     @ [Label labend]
@@ -188,11 +188,13 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list = //TODO
         | Temp(n, _) ->
             match Map.find n graph with
             | Spill ->
+                let eCode,env1 = cExpr e varEnv funEnv Rbx info graph
                 let tempReg = getTemp Rbx info graph //no reg needs to be preserved
-                eCode @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env @ [Ins2("cmp", Reg tempReg, Cst 0)])
-                @ ifCode
-            | r -> 
-                eCode @ [Ins2("cmp", Reg r, Cst 0)] @ ifCode
+                eCode @ evictAndRestore n tempReg env1 (getAddrOfTemp n tempReg env1 @ [Ins2("cmp", Reg tempReg, Cst 0)])
+                @ ifCode env1
+            | r ->
+                let eCode,env1 = cExpr e varEnv funEnv r info graph
+                eCode @ [Ins2("cmp", Reg r, Cst 0)] @ ifCode env1
         | _ -> failwith "condition not in temp in If"
     | DWhile(e, body,info) ->
         let labbegin = newLabel()
@@ -206,10 +208,19 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list = //TODO
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                loopCode @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env @ [Ins2("cmp", Reg tempReg, Cst 0)])  @ [Jump("jnz", labbegin)]
+                loopCode @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env
+                         @ [Ins2("cmp", Reg tempReg, Cst 0)])  @ [Jump("jnz", labbegin)]
             | r -> loopCode @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labbegin)]
         | _ -> failwith "condition not in temp in While"
-    | DExpr(e,info) -> cExpr e varEnv funEnv Rbx info graph |> fst
+    | DExpr(e,info) ->
+        match e with
+        | Temp(n,_) ->
+            match Map.find n graph with
+            | Spill ->
+                let tempReg = getTemp Dummy info graph
+                evictAndRestore n tempReg varEnv (cExpr e varEnv funEnv tempReg info graph |> fst)
+            | r -> cExpr e varEnv funEnv r info graph |> fst
+        | _ -> failwith "condition not in temp in Expr" 
     | DBlock(stmts,info) -> 
         let rec loop stmts varEnv =
             match stmts with 
@@ -257,7 +268,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         match code with
         | [] -> movToRetReg reg tr,newEnv
         | _ -> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
-    | Assign(acc, e) ->
+    | Assign(acc, e) -> //TODO figure out how this works when acc is not spilled vs when it is
         let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
         match e with
         | Temp(n, _) ->
@@ -359,14 +370,14 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
                                      @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r
                 retCode, env2
-            | Spill, r -> //TODO make sure the correct side of || is moved into reg
+            | Spill, r ->
                 let code1 = getAddrOfTemp n1 r env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
                                  @ e2Code @ [Label labend] @ movToRetReg reg r   
                 retCode, env2
-            | r1,r2 -> //TODO make sure the correct side of || is moved into reg
-                e1Code @ [Ins2("cmp", Reg r1, Cst 0);Jump("jnz", labend)]
-                         @ e2Code @ [Label labend] @ movToRetReg reg r2,env2
+            | r1,r2 ->
+                e1Code @ [Ins2("cmp", Reg r1, Cst 0)] @ movToRetReg r2 r1 @[Jump("jnz", labend)]
+                       @ e2Code @ [Label labend] @ movToRetReg reg r2,env2
         | _ -> failwith "wrong abstract syntax in Orelse"        
     | Call(f, es) ->
         let code = callfun f es varEnv funEnv reg liveVars graph
