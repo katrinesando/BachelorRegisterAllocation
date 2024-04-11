@@ -31,9 +31,7 @@
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\X64.fs" />
         <Content Include="Assembly\try1" />
-        <Compile Include="Assembly\X86.fs" />
         <Compile Include="Assembly\X64Comp.fs" />
-        <Compile Include="Assembly\X86Comp.fs" />
         <Compile Include="Assembly\MicroCCAsm.fs" />
         <Compile Include="Assembly\ParseAndComp.fs" />
         <ClCompile Include="Assembly\mcexamples\ex11count.c" />

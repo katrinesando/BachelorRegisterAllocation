@@ -188,8 +188,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
         | Temp(n, _) ->
             match Map.find n graph with
             | Spill ->
-                let eCode,env1 = cExpr e varEnv funEnv Rbx info graph
-                let tempReg = getTemp Rbx info graph //no reg needs to be preserved
+                let tempReg = getTemp Dummy info graph //no reg needs to be preserved
+                let eCode,env1 = cExpr e varEnv funEnv tempReg info graph
                 eCode @ evictAndRestore n tempReg env1 (getAddrOfTemp n tempReg env1 @ [Ins2("cmp", Reg tempReg, Cst 0)])
                 @ ifCode env1
             | r ->
@@ -199,18 +199,20 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
     | DWhile(e, body,info) ->
         let labbegin = newLabel()
         let labcondition  = newLabel()
-        let code,env = cExpr e varEnv funEnv Rbx info graph
-        let loopCode = [Jump("jmp", labcondition);Label labbegin]
-                       @ cStmt body env funEnv graph
-                       @ [Label labcondition] @ code
+        let loopCode env = [Jump("jmp", labcondition);Label labbegin]
+                           @ cStmt body env funEnv graph
+                           @ [Label labcondition] 
         match e with
         | Temp(n,_) ->
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                loopCode @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env
+                let code,env = cExpr e varEnv funEnv tempReg info graph
+                loopCode env @ code @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env
                          @ [Ins2("cmp", Reg tempReg, Cst 0)])  @ [Jump("jnz", labbegin)]
-            | r -> loopCode @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labbegin)]
+            | r ->
+                 let code,env = cExpr e varEnv funEnv r info graph
+                 loopCode env @ code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labbegin)]
         | _ -> failwith "condition not in temp in While"
     | DExpr(e,info) ->
         match e with
@@ -218,7 +220,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                evictAndRestore n tempReg varEnv (cExpr e varEnv funEnv tempReg info graph |> fst)
+                let code, env = cExpr e varEnv funEnv tempReg info graph
+                evictAndRestore n tempReg env code
             | r -> cExpr e varEnv funEnv r info graph |> fst
         | _ -> failwith "condition not in temp in Expr" 
     | DBlock(stmts,info) -> 
@@ -279,11 +282,19 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                     else
                         let tempReg = getTemp tr' liveVars graph
                         cExpr e env1 funEnv tempReg liveVars graph, tempReg
-                let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Ind tr', Reg tempReg)] //tr' is the register returned from cAccess
-                accCode @ evictAndRestore n tempReg env2 (eCode @ code), env2
+                match accCode with
+                | [] ->
+                    let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Reg tr', Reg tempReg)] //tr' is the register returned from cAccess
+                    accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr', env2
+                | _  ->
+                    let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Ind tr', Reg tempReg)] //tr' is the register returned from cAccess
+                    accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr', env2
+                
             | r ->
                 let eCode, env2 = cExpr e env1 funEnv reg liveVars graph
-                accCode @ eCode @ [Ins2("mov", Ind reg, Reg r)],env2
+                match accCode with //If empty list, accCode register contains values
+                | [] -> accCode @ eCode @ [Ins2("mov", Reg tr', Reg r)]  @ movToRetReg reg tr',env2
+                | _  -> accCode @ eCode @ [Ins2("mov", Ind tr', Reg r)]  @ movToRetReg reg tr',env2                
         | _ -> failwith "wrong absyn in Assign"
     | CstI i         ->
         [Ins2("mov", Reg reg, Cst i)],varEnv
@@ -399,7 +410,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         
         
 (* Generate code to access variable, dereference pointer or index array: *)
-//pres = registers currently in use
+(* If return empty list tr is a register with a value otherwise it contains an address*)
 and cAccess access varEnv funEnv reg liveVars graph =
     match access with 
     | AccVar x ->
