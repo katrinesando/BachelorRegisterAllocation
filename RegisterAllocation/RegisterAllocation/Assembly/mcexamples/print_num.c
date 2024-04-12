@@ -1,6 +1,8 @@
 void main(int n)
 {
    int a;
-   a;
-   print (0||2);
+   a = 2;
+   int *b;
+   b = &a;
+   print b;
 }

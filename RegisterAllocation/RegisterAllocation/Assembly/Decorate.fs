@@ -121,20 +121,20 @@ let bottomUpAnalysis (Prog prog) =
 let rec topDownStmt dstmt livelist pointerRefs=
     match dstmt with
     | DIf(e, dstmt1, dstmt2, info) ->
-        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         let (thenDstmt, lst1, pr1) = topDownStmt dstmt1 lst pr
         let (elseDstmt, lst2, pr2) = topDownStmt dstmt1 lst1 pr1
         DIf(expr, thenDstmt, elseDstmt, lst2), lst2, pr2
     | DWhile(e, dstmt, info) ->
-        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         let (body, lst1, pr1) = topDownStmt dstmt lst pr
         DWhile(expr, body, lst1), lst1, pr1
     | DExpr(e, info) ->
-        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         DExpr(expr, lst), lst, pr
     | DReturn (None, info)-> DReturn(None, info), info, pointerRefs
     | DReturn (Some e, info) ->
-        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         DReturn(Some expr, lst), lst, pr
     | DBlock(stmtordecs, info) ->
         let rec loop rest (accStmts, accLive, accPr as acc) =
@@ -155,54 +155,54 @@ and topDownDStmtordec dstmtordec livelist pointerRefs =
     | DStmt(ds, info) ->
         let (dstmt, lst, pr) = topDownStmt ds info pointerRefs
         DStmt(dstmt, lst), lst, pr
-and topDownExpr expr liveList pointerRefs =
+and topDownExpr expr liveList pointerRefs varsAccessed =
     match expr with
     | Access acc ->
-        let a, lst, pr = topDownAccess acc liveList pointerRefs
-        Access a, lst, pr
+        let a, lst, pr, va = topDownAccess acc liveList pointerRefs varsAccessed
+        Access a, lst, pr, va
     | Assign(acc, e) ->
-        let expr, lst, pr = topDownExpr e liveList pointerRefs
-        let a, lst1, pr1 = topDownAccess acc lst pr
-        let newLive =
+        let expr, lst, pr, va = topDownExpr e liveList pointerRefs varsAccessed
+        let a, lst1, pr1, va1 = topDownAccess acc lst pr va
+        let newLive, newRefs, varAcc =
             match a with
             | AccVar n ->
-                match Map.tryFind name pointerRefs with
-                | None -> lst1
+                match Map.tryFind n pr1 with
+                | None -> lst1, pr1, [n]
                 | Some ref ->
-                    if mem ref liveList then removeFromList lst1 ref
-                    else lst1
-            | _ -> lst1
-        let newRefs =
-            match expr with
-            | Temp(_, expr)
-        Assign (a,),newLive
+                    match ref with
+                    | None -> lst1, pr1, [n] //fx if pointer is not initalized
+                    | Some varLst -> //list of variable names referenced by pointer
+                        let newPr = Map.add n (Some va1) pr1
+                        lst1, newPr, [n]
+            | _ -> lst1,pr1, va1
+        Assign (a,expr),newLive, newRefs, varAcc
     | Addr acc ->
-        let a, lst, pr = topDownAccess acc liveList pointerRefs
-        Addr a,lst,pr
-    | CstI i -> CstI i, liveList, pointerRefs
+        let a, lst, pr, va  = topDownAccess acc liveList pointerRefs varsAccessed
+        Addr a,lst,pr, va
+    | CstI i -> CstI i, liveList, pointerRefs, varsAccessed
     | Prim1(ope, e) ->
-        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
-        Prim1(ope, expr), lst, pr
+        let expr, lst, pr, va = topDownExpr e liveList pointerRefs varsAccessed
+        Prim1(ope, expr), lst, pr, va
     | Prim2(ope, e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
-        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
-        Prim2(ope, expr1, expr2), lst2, pr2
+        let expr1, lst1, pr1, va1 = topDownExpr e1 liveList pointerRefs varsAccessed
+        let(expr2, lst2, pr2, va2) = topDownExpr e2 lst1 pr1 va1
+        Prim2(ope, expr1, expr2), lst2, pr2, va2
     | Andalso(e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
-        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
-        Andalso(expr1, expr2), lst2, pr2
+        let(expr1, lst1, pr1, va1) = topDownExpr e1 liveList pointerRefs varsAccessed
+        let(expr2, lst2, pr2, va2) = topDownExpr e2 lst1 pr1 va1
+        Andalso(expr1, expr2), lst2, pr2, va2
     | Orelse(e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
-        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
-        Orelse(expr1, expr2), lst2, pr2
+        let(expr1, lst1, pr1, va1) = topDownExpr e1 liveList pointerRefs varsAccessed
+        let(expr2, lst2, pr2, va2) = topDownExpr e2 lst1 pr1 va1
+        Orelse(expr1, expr2), lst2, pr2, va2
     | Call(name, e) ->
-        let (expr, lst, pr) = List.fold(fun (exprs, liveVars, prMap) elem ->
-            let(expr, lst, pr) = topDownExpr elem liveVars prMap
-            (expr :: exprs, lst, pr)) ([],liveList, pointerRefs) e
-        Call(name, expr), lst, pr
+        let (expr, lst, pr, va) = List.fold(fun (exprs, liveVars, prMap, vars) elem ->
+            let(expr, lst, pr, va) = topDownExpr elem liveVars prMap vars
+            (expr :: exprs, lst, pr, va)) ([],liveList, pointerRefs, varsAccessed) e
+        Call(name, expr), lst, pr, va
     | Temp(name, e) ->
-        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
-        Temp(name, expr),lst ,pr
+        let(expr, lst, pr, va) = topDownExpr e liveList pointerRefs varsAccessed
+        Temp(name, expr),lst ,pr, va
 and topDownAccess acc liveList pointerRefs varsAccessed=
     match acc with
     |AccVar name ->
@@ -210,29 +210,34 @@ and topDownAccess acc liveList pointerRefs varsAccessed=
         | None ->
             AccVar name, liveList, pointerRefs, name :: varsAccessed
         | Some ref ->
-            if mem ref liveList then AccVar name, liveList, pointerRefs
-            else AccVar name, ref :: liveList, pointerRefs, name :: varsAccessed
+            match ref with
+            | None -> AccVar name, liveList, pointerRefs, name :: varsAccessed
+            | Some vars ->
+                let newlst = List.fold(fun acc elem -> if mem elem acc then acc else elem::acc) liveList vars
+                AccVar name, newlst, pointerRefs, name :: varsAccessed
     |AccDeref e->
-        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
-        AccDeref expr ,lst, pr
+        let(expr, lst, pr, va) = topDownExpr e liveList pointerRefs varsAccessed
+        AccDeref expr ,lst, pr, va
     |AccIndex(acc, idx) ->
-        let(expr, lst, pr) = topDownExpr idx liveList pointerRefs
-        let a, lst1, pr1 = topDownAccess acc lst pr
-        AccIndex (a,expr),lst1, pr1
+        let(expr, lst, pr, va ) = topDownExpr idx liveList pointerRefs varsAccessed
+        let a, lst1, pr1, va1 = topDownAccess acc lst pr va
+        AccIndex (a,expr),lst1, pr1, va1
 let topDownAnalysis (DProg prog) =
-    let rec aux res (dtree,livelist as acc) =
+    let rec aux res (dtree,livelist, pointerRefs as acc) =
         match res with
         | [] -> dtree
         | x::xs ->
             match x with
             | DVardec(t, name, info) ->
-                let newlist = removeFromList livelist name
-                aux xs (DVardec(t,name,newlist) :: dtree,newlist) 
+                match t with
+                | TypP _ ->
+                    aux xs (DVardec(t,name,info) :: dtree,info,Map.add name None pointerRefs) 
+                | _ ->
+                    aux xs (DVardec(t,name,info) :: dtree,info,pointerRefs) 
             | DFundec(rtyp, name, args, body, info) ->
-                let (decoratedBody,stmtList) = aStmt body livelist
-                let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
-                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
-    DProg(aux (prog) ([],[]))   
+                let (decoratedBody,stmtList, pr) = topDownStmt body livelist pointerRefs //Cannot assign to variable from function
+                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,info, pr) 
+    DProg(aux (prog) ([],[], Map.empty))   
 
 
 let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis
