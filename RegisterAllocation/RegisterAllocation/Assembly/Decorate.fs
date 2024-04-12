@@ -103,7 +103,7 @@ and aAccess access lst  =
       let newAcc, newLst = aAccess acc exprLst
       AccIndex(newAcc, newExpr), newLst
 
-let livenessAnotator (Prog prog) =
+let bottomUpAnalysis (Prog prog) =
     let rec aux res (dtree,livelist as acc) =
         match res with
         | [] -> dtree
@@ -116,4 +116,91 @@ let livenessAnotator (Prog prog) =
                 let (decoratedBody,stmtList) = aStmt body livelist
                 let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
                 aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
-    DProg(aux (List.rev prog) ([],[])) //starts from the bottom of the program
+    DProg(aux (List.rev prog) ([],[]))
+    
+let rec topDownStmt dstmt livelist pointerRefs=
+    match dstmt with
+    | DIf(e, dstmt1, dstmt2, info) ->
+        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (thenDstmt, lst1, pr1) = topDownStmt dstmt1 lst pr
+        let (elseDstmt, lst2, pr2) = topDownStmt dstmt1 lst1 pr1
+        DIf(expr, thenDstmt, elseDstmt, lst2), lst2, pr2
+    | DWhile(e, dstmt, info) ->
+        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        let (body, lst1, pr1) = topDownStmt dstmt lst pr
+        DWhile(expr, body, lst1), lst1, pr1
+    | DExpr(e, info) ->
+        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        DExpr(expr, lst), lst, pr
+    | DReturn (None, info)-> DReturn(None, info), info, pointerRefs
+    | DReturn (Some e, info) ->
+        let (expr, lst, pr) = topDownExpr e info pointerRefs
+        DReturn(Some expr, lst), lst, pr
+    | DBlock(stmtordecs, info) ->
+        let rec loop rest (accStmts, accLive, accPr as acc) =
+            match rest with
+            |[] -> acc
+            |x::xs ->
+                let newstmt, list, pr = topDownDStmtordec x accLive accPr
+                loop xs (newstmt::accStmts, list, pr)
+        let (stmtLst, newlist, pr) = loop stmtordecs ([],info, pointerRefs) 
+        DBlock(List.rev stmtLst, newlist),newlist, pr
+        
+and topDownDStmtordec dstmtordec livelist pointerRefs =
+    match dstmtordec with
+    | DDec(typ, name, info) ->
+        match typ with
+        | TypP _ -> DDec(typ, name, info), livelist, Map.add name None pointerRefs
+        | _ -> DDec(typ, name, info), livelist, pointerRefs
+    | DStmt(ds, info) ->
+        let (dstmt, lst, pr) = topDownStmt ds info pointerRefs
+        DStmt(dstmt, lst), lst, pr
+and topDownExpr expr livelist pointerRefs =
+    match expr with
+    | Access acc -> failwith "not implemented"
+    | Assign(acc, e) -> failwith "not implemented"
+    | Addr acc -> failwith "not implemented"
+    | CstI i -> CstI i, livelist, pointerRefs
+    | Prim1(ope, e) ->
+        let(expr, lst, pr) = topDownExpr e livelist pointerRefs
+        Prim1(ope, expr), lst, pr
+    | Prim2(ope, e1, e2) ->
+        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
+        Prim2(ope, expr1, expr2), lst2, pr2
+    | Andalso(e1, e2) ->
+        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
+        Andalso(expr1, expr2), lst2, pr2
+    | Orelse(e1, e2) ->
+        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
+        Orelse(expr1, expr2), lst2, pr2
+    | Call(name, e) ->
+        let (expr, lst, pr) = List.fold(fun (exprs, liveVars, prMap) elem ->
+            let(expr, lst, pr) = topDownExpr elem liveVars prMap
+            (expr :: exprs, lst, pr)) ([],livelist, pointerRefs) e
+        Call(name, expr), lst, pr
+    | Temp(name, e) -> failwith "not implemented"
+and topDownAccess acc pointerRefs=
+    match acc with
+    |AccVar name -> failwith "not implemented"
+    |AccDeref e-> failwith "not implemented"
+    |AccIndex(acc, idx) -> failwith "not implemented"
+let topDownAnalysis (DProg prog) =
+    let rec aux res (dtree,livelist as acc) =
+        match res with
+        | [] -> dtree
+        | x::xs ->
+            match x with
+            | DVardec(t, name, info) ->
+                let newlist = removeFromList livelist name
+                aux xs (DVardec(t,name,newlist) :: dtree,newlist) 
+            | DFundec(rtyp, name, args, body, info) ->
+                let (decoratedBody,stmtList) = aStmt body livelist
+                let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
+                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
+    DProg(aux (prog) ([],[]))   
+
+
+let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis
