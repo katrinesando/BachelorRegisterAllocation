@@ -4,5 +4,5 @@ void main(int n)
    a = 2;
    int *b;
    b = &a;
-   print b;
+   print (*b);
 }

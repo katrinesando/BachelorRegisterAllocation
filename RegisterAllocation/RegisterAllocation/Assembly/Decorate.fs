@@ -168,10 +168,8 @@ and topDownExpr expr liveList pointerRefs varsAccessed =
             | AccVar n ->
                 match Map.tryFind n pr1 with
                 | None -> lst1, pr1, [n]
-                | Some ref ->
-                    match ref with
-                    | None -> lst1, pr1, [n] //fx if pointer is not initalized
-                    | Some varLst -> //list of variable names referenced by pointer
+                | Some None -> lst1, Map.add n (Some va1) pr1, [n] //fx if pointer is not initalized
+                | Some (Some refs) ->
                         let newPr = Map.add n (Some va1) pr1
                         lst1, newPr, [n]
             | _ -> lst1,pr1, va1
@@ -211,7 +209,8 @@ and topDownAccess acc liveList pointerRefs varsAccessed=
             AccVar name, liveList, pointerRefs, name :: varsAccessed
         | Some ref ->
             match ref with
-            | None -> AccVar name, liveList, pointerRefs, name :: varsAccessed
+            | None ->
+                AccVar name, liveList, pointerRefs, name :: varsAccessed
             | Some vars ->
                 let newlst = List.fold(fun acc elem -> if mem elem acc then acc else elem::acc) liveList vars
                 AccVar name, newlst, pointerRefs, name :: varsAccessed
