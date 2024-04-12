@@ -1,7 +1,7 @@
 ﻿module Utility
 open Absyn
 
-
+let mem x xs = List.exists (fun y -> x=y) xs
 type reg64 =
     | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
 let fromReg reg =

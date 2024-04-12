@@ -7,7 +7,7 @@ open DecorAbsyn
 (* The 13 registers that can be used for temporary values in x86-64.
 Allowing RDX requires special handling across IMUL and IDIV *)
 
-let mem x xs = List.exists (fun y -> x=y) xs
+
 
 type node = string //varname
 type interferenceGraph = Map<node,int * reg64 * node list> //name, degree * colour * node list

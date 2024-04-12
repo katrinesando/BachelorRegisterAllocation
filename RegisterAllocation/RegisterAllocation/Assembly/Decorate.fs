@@ -155,38 +155,70 @@ and topDownDStmtordec dstmtordec livelist pointerRefs =
     | DStmt(ds, info) ->
         let (dstmt, lst, pr) = topDownStmt ds info pointerRefs
         DStmt(dstmt, lst), lst, pr
-and topDownExpr expr livelist pointerRefs =
+and topDownExpr expr liveList pointerRefs =
     match expr with
-    | Access acc -> failwith "not implemented"
-    | Assign(acc, e) -> failwith "not implemented"
-    | Addr acc -> failwith "not implemented"
-    | CstI i -> CstI i, livelist, pointerRefs
+    | Access acc ->
+        let a, lst, pr = topDownAccess acc liveList pointerRefs
+        Access a, lst, pr
+    | Assign(acc, e) ->
+        let expr, lst, pr = topDownExpr e liveList pointerRefs
+        let a, lst1, pr1 = topDownAccess acc lst pr
+        let newLive =
+            match a with
+            | AccVar n ->
+                match Map.tryFind name pointerRefs with
+                | None -> lst1
+                | Some ref ->
+                    if mem ref liveList then removeFromList lst1 ref
+                    else lst1
+            | _ -> lst1
+        let newRefs =
+            match expr with
+            | Temp(_, expr)
+        Assign (a,),newLive
+    | Addr acc ->
+        let a, lst, pr = topDownAccess acc liveList pointerRefs
+        Addr a,lst,pr
+    | CstI i -> CstI i, liveList, pointerRefs
     | Prim1(ope, e) ->
-        let(expr, lst, pr) = topDownExpr e livelist pointerRefs
+        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
         Prim1(ope, expr), lst, pr
     | Prim2(ope, e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
         let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
         Prim2(ope, expr1, expr2), lst2, pr2
     | Andalso(e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
         let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
         Andalso(expr1, expr2), lst2, pr2
     | Orelse(e1, e2) ->
-        let(expr1, lst1, pr1) = topDownExpr e1 livelist pointerRefs
+        let(expr1, lst1, pr1) = topDownExpr e1 liveList pointerRefs
         let(expr2, lst2, pr2) = topDownExpr e2 lst1 pr1
         Orelse(expr1, expr2), lst2, pr2
     | Call(name, e) ->
         let (expr, lst, pr) = List.fold(fun (exprs, liveVars, prMap) elem ->
             let(expr, lst, pr) = topDownExpr elem liveVars prMap
-            (expr :: exprs, lst, pr)) ([],livelist, pointerRefs) e
+            (expr :: exprs, lst, pr)) ([],liveList, pointerRefs) e
         Call(name, expr), lst, pr
-    | Temp(name, e) -> failwith "not implemented"
-and topDownAccess acc pointerRefs=
+    | Temp(name, e) ->
+        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
+        Temp(name, expr),lst ,pr
+and topDownAccess acc liveList pointerRefs varsAccessed=
     match acc with
-    |AccVar name -> failwith "not implemented"
-    |AccDeref e-> failwith "not implemented"
-    |AccIndex(acc, idx) -> failwith "not implemented"
+    |AccVar name ->
+        match Map.tryFind name pointerRefs with
+        | None ->
+            AccVar name, liveList, pointerRefs, name :: varsAccessed
+        | Some ref ->
+            if mem ref liveList then AccVar name, liveList, pointerRefs
+            else AccVar name, ref :: liveList, pointerRefs, name :: varsAccessed
+    |AccDeref e->
+        let(expr, lst, pr) = topDownExpr e liveList pointerRefs
+        AccDeref expr ,lst, pr
+    |AccIndex(acc, idx) ->
+        let(expr, lst, pr) = topDownExpr idx liveList pointerRefs
+        let a, lst1, pr1 = topDownAccess acc lst pr
+        AccIndex (a,expr),lst1, pr1
 let topDownAnalysis (DProg prog) =
     let rec aux res (dtree,livelist as acc) =
         match res with
