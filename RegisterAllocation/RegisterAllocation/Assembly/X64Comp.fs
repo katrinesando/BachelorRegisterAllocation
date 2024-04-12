@@ -172,6 +172,12 @@ let putValInAddrOfTemp name reg varEnv =
     match lookup (fst varEnv) name with
                 | Locvar addr,_ -> [Ins2("mov", RbpOff (8*addr), Reg reg)]
                 | _ -> failwith "a temporary should not be a Glovar"
+let getAddrOfVarInReg tr reg graph liveVars env =
+    let name = List.fold(fun acc elem ->
+            if Map.find elem graph = tr then elem else acc) "" liveVars
+    match lookup (fst env) name with
+    | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
+    | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))]
 
 (* Compiling micro-C statements *)
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
@@ -270,7 +276,10 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         let code,newEnv, tr = cAccess acc varEnv funEnv reg liveVars graph
         match code with
         | [] -> movToRetReg reg tr,newEnv
-        | _ -> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
+        | _ ->
+            match acc with
+            | AccVar _ -> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
+            | _ -> code @ movToRetReg reg tr,newEnv 
     | Assign(acc, e) -> //TODO figure out how this works when acc is not spilled vs when it is
         let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
         match e with
@@ -283,17 +292,21 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                         let tempReg = getTemp tr' liveVars graph
                         cExpr e env1 funEnv tempReg liveVars graph, tempReg
                 match accCode with
-                | [] ->
+                | [] -> 
                     let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Reg tr', Reg tempReg)] //tr' is the register returned from cAccess
-                    accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr', env2
+                    let addrCode = getAddrOfVarInReg tr' tempReg graph liveVars env2
+                    accCode @
+                    evictAndRestore n tempReg env2 (eCode @ [Ins1("push", Reg tempReg)] @ addrCode @[Ins1("pop", Reg tr');Ins2("mov", Ind tempReg, Reg tr')]@ code)
+                    @ movToRetReg reg tr', env2
                 | _  ->
                     let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Ind tr', Reg tempReg)] //tr' is the register returned from cAccess
                     accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr', env2
-                
             | r ->
                 let eCode, env2 = cExpr e env1 funEnv reg liveVars graph
                 match accCode with //If empty list, accCode register contains values
-                | [] -> accCode @ eCode @ [Ins2("mov", Reg tr', Reg r)]  @ movToRetReg reg tr',env2
+                | [] ->
+                    let addrCode = getAddrOfVarInReg tr' r graph liveVars env2
+                    eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr');Ins2("mov", Ind r, Reg tr')]  @ movToRetReg reg tr',env2
                 | _  -> accCode @ eCode @ [Ins2("mov", Ind tr', Reg r)]  @ movToRetReg reg tr',env2                
         | _ -> failwith "wrong absyn in Assign"
     | CstI i         ->
@@ -301,12 +314,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
     | Addr acc       ->
         let code, env, tr = cAccess acc varEnv funEnv reg liveVars graph
         match code with
-        | [] ->
-            let name = List.fold(fun acc elem ->
-                if Map.find elem graph = tr then elem else acc) "" liveVars
-            match lookup (fst env) name with
-            | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))], env
-            | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))], env
+        | [] -> getAddrOfVarInReg tr reg graph liveVars env, env
         | _  -> code @ movToRetReg reg tr, env
     | Prim1(ope, e1) ->
         let eCode, env1 = cExpr e1 varEnv funEnv reg liveVars graph           
