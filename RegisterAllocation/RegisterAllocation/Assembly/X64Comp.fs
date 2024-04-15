@@ -278,7 +278,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         | [] -> movToRetReg reg tr,newEnv
         | _ ->
             match acc with
-            | AccVar _ -> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
+            | AccIndex _ | AccVar _-> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
             | _ -> code @ movToRetReg reg tr,newEnv 
     | Assign(acc, e) -> //TODO figure out how this works when acc is not spilled vs when it is
         let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
