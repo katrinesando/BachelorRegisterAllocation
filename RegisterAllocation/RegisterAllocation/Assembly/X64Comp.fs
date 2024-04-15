@@ -180,45 +180,51 @@ let getAddrOfVarInReg tr reg graph liveVars env =
     | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))]
 
 (* Compiling micro-C statements *)
-let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
+let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x86 list =
     match stmt with
     | DIf(e, stmt1, stmt2,info) ->
         let labelse = newLabel()
         let labend  = newLabel()
         let ifCode env =
+                    let env1, code1 = cStmt stmt1 env funEnv graph
+                    let env2, code2 = cStmt stmt1 env1 funEnv graph
                     [Jump("jz", labelse)] 
-                    @ cStmt stmt1 env funEnv graph @ [Jump("jmp", labend)]
-                    @ [Label labelse] @ cStmt stmt2 env funEnv graph
+                    @ code1 @ [Jump("jmp", labend)]
+                    @ [Label labelse] @ code2
                     @ [Label labend]
         match e with
         | Temp(n, _) ->
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph //no reg needs to be preserved
-                let eCode,env1 = cExpr e varEnv funEnv tempReg info graph
-                eCode @ evictAndRestore n tempReg env1 (getAddrOfTemp n tempReg env1 @ [Ins2("cmp", Reg tempReg, Cst 0)])
-                @ ifCode env1
+                let env1, eCode = cExpr e varEnv funEnv tempReg info graph
+                let code = ifCode env1
+                env1, eCode @ evictAndRestore n tempReg env1 (getAddrOfTemp n tempReg env1 @ [Ins2("cmp", Reg tempReg, Cst 0)])
+                @ code
             | r ->
-                let eCode,env1 = cExpr e varEnv funEnv r info graph
-                eCode @ [Ins2("cmp", Reg r, Cst 0)] @ ifCode env1
+                let env1, eCode = cExpr e varEnv funEnv r info graph
+                let code = ifCode env1
+                env1, eCode @ [Ins2("cmp", Reg r, Cst 0)] @ code
         | _ -> failwith "condition not in temp in If"
     | DWhile(e, body,info) ->
         let labbegin = newLabel()
         let labcondition  = newLabel()
-        let loopCode env = [Jump("jmp", labcondition);Label labbegin]
-                           @ cStmt body env funEnv graph
+        let loopCode env =
+                           let env1, code1 = cStmt body env funEnv graph
+                           [Jump("jmp", labcondition);Label labbegin]
+                           @ code1
                            @ [Label labcondition] 
         match e with
         | Temp(n,_) ->
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                let code,env = cExpr e varEnv funEnv tempReg info graph
-                loopCode env @ code @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env
+                let env, code = cExpr e varEnv funEnv tempReg info graph
+                env, loopCode env @ code @ evictAndRestore n tempReg env (getAddrOfTemp n tempReg env
                          @ [Ins2("cmp", Reg tempReg, Cst 0)])  @ [Jump("jnz", labbegin)]
             | r ->
-                 let code,env = cExpr e varEnv funEnv r info graph
-                 loopCode env @ code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labbegin)]
+                 let env, code = cExpr e varEnv funEnv r info graph
+                 env, loopCode env @ code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labbegin)]
         | _ -> failwith "condition not in temp in While"
     | DExpr(e,info) ->
         match e with
@@ -226,9 +232,10 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                let code, env = cExpr e varEnv funEnv tempReg info graph
-                evictAndRestore n tempReg env code
-            | r -> cExpr e varEnv funEnv r info graph |> fst
+                printfn "DExpr with %A" tempReg
+                let env, code = cExpr e varEnv funEnv tempReg info graph
+                env, evictAndRestore n tempReg env code
+            | r -> cExpr e varEnv funEnv r info graph 
         | _ -> failwith "condition not in temp in Expr" 
     | DBlock(stmts,info) -> 
         let rec loop stmts varEnv =
@@ -239,21 +246,21 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
               let (fdepthr, coder) = loop sr varEnv1 
               (fdepthr, code1 @ coder)
         let (fdepthend, code) = loop stmts varEnv
-        code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))] //Which varEnv that is given might fuck something up, since temp now also are in varEnv
+        varEnv, code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))] //Which varEnv that is given might fuck something up, since temp now also are in varEnv
     | DReturn(None,info) ->
-        [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); 
-         Ins("pop rbp");
-         Ins("ret")]
+        varEnv, [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); 
+                 Ins("pop rbp");
+                 Ins("ret")]
     | DReturn(Some e,info) ->  //Returns need to be in specific register every time
-        let code,env = cExpr e varEnv funEnv Rbx info graph
-        code @ [Ins2("add", Reg Rsp, Cst (8 * snd env)); 
-           Ins("pop rbp");
-           Ins("ret")]
+        let env, code = cExpr e varEnv funEnv Rbx info graph
+        env, code @ [Ins2("add", Reg Rsp, Cst (8 * snd env)); 
+                   Ins("pop rbp");
+                   Ins("ret")]
 
 
 and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x86 list = 
     match stmtOrDec with 
-    | DStmt (stmt,_)    -> (varEnv, cStmt stmt varEnv funEnv graph) 
+    | DStmt (stmt,_)    -> cStmt stmt varEnv funEnv graph 
     | DDec (typ, x,_) -> allocate Locvar (typ, x) varEnv
 
 (* Compiling micro-C expressions: 
@@ -270,23 +277,23 @@ and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x8
    leave the registers in pres unchanged, and leave the stack depth unchanged.
 *)
 
-and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars graph : x86 list * varEnv = 
+and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars graph : varEnv * x86 list = 
     match e with
     | Access acc     ->
         let code,newEnv, tr = cAccess acc varEnv funEnv reg liveVars graph
         match code with
-        | [] -> movToRetReg reg tr,newEnv
+        | [] -> newEnv, movToRetReg reg tr
         | _ ->
             match acc with
-            | AccIndex _ | AccVar _-> code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr,newEnv 
-            | _ -> code @ movToRetReg reg tr,newEnv 
+            | AccIndex _ | AccVar _-> newEnv, code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr 
+            | _ -> newEnv, code @ movToRetReg reg tr 
     | Assign(acc, e) -> //TODO figure out how this works when acc is not spilled vs when it is
         let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
         match e with
         | Temp(n, _) ->
             match Map.find n graph with
-            | Spill -> 
-                let (eCode,env2), tempReg = 
+            | Spill -> //failwith "not implemented assign"
+                let (env2, eCode), tempReg = 
                     if reg <> tr' then cExpr e env1 funEnv reg liveVars graph, reg
                     else
                         let tempReg = getTemp tr' liveVars graph
@@ -295,42 +302,42 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 | [] -> 
                     let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Reg tr', Reg tempReg)] //tr' is the register returned from cAccess
                     let addrCode = getAddrOfVarInReg tr' tempReg graph liveVars env2
-                    accCode @
+                    env2, accCode @
                     evictAndRestore n tempReg env2 (eCode @ [Ins1("push", Reg tempReg)] @ addrCode @[Ins1("pop", Reg tr');Ins2("mov", Ind tempReg, Reg tr')]@ code)
-                    @ movToRetReg reg tr', env2
+                    @ movToRetReg reg tr'
                 | _  ->
                     let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Ind tr', Reg tempReg)] //tr' is the register returned from cAccess
-                    accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr', env2
+                    env2, accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr'
             | r ->
-                let eCode, env2 = cExpr e env1 funEnv reg liveVars graph
+                let env2, eCode = cExpr e env1 funEnv reg liveVars graph
                 match accCode with //If empty list, accCode register contains values
                 | [] ->
                     let addrCode = getAddrOfVarInReg tr' r graph liveVars env2
-                    eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr');Ins2("mov", Ind r, Reg tr')]  @ movToRetReg reg tr',env2
-                | _  -> accCode @ eCode @ [Ins2("mov", Ind tr', Reg r)]  @ movToRetReg reg tr',env2                
+                    env2, eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr');Ins2("mov", Ind r, Reg tr')]  @ movToRetReg reg tr'
+                | _  -> env2, accCode @ eCode @ [Ins2("mov", Ind tr', Reg r)]  @ movToRetReg reg tr'                
         | _ -> failwith "wrong absyn in Assign"
     | CstI i         ->
-        [Ins2("mov", Reg reg, Cst i)],varEnv
+        varEnv, [Ins2("mov", Reg reg, Cst i)]
     | Addr acc       ->
         let code, env, tr = cAccess acc varEnv funEnv reg liveVars graph
         match code with
-        | [] -> getAddrOfVarInReg tr reg graph liveVars env, env
-        | _  -> code @ movToRetReg reg tr, env
+        | [] -> env, getAddrOfVarInReg tr reg graph liveVars env
+        | _  -> env, code @ movToRetReg reg tr
     | Prim1(ope, e1) ->
-        let eCode, env1 = cExpr e1 varEnv funEnv reg liveVars graph           
+        let env1, eCode = cExpr e1 varEnv funEnv reg liveVars graph           
         match e1 with
         | Temp(n,_)->
             match Map.find n graph with
-            | Spill ->
-                eCode @ getAddrOfTemp n reg env1 @ prim1Code ope reg liveVars graph, env1
+            | Spill -> //failwith "not implemented prim1" 
+                 env1, eCode @ getAddrOfTemp n reg env1 @ prim1Code ope reg liveVars graph
             | r ->
-                eCode @ prim1Code ope r liveVars graph
-                        @ movToRetReg reg r, env1
+                env1, eCode @ prim1Code ope r liveVars graph
+                        @ movToRetReg reg r
         | _ -> failwith "wrong abstract syntax in Prim1"
     | Prim2(ope, e1, e2) ->
         let avoid = if ope = "/" || ope = "%" then [Rdx; reg] else [reg]
-        let e1Code,env1 = cExpr e1 varEnv funEnv reg liveVars graph
-        let e2Code,env2 = cExpr e2 env1 funEnv reg liveVars graph
+        let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+        let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
         let exprCodes = e1Code @ e2Code 
         match e1,e2 with
         | Temp(n1,_),Temp(n2,_) ->
@@ -339,22 +346,22 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let tempReg2 = getTemp reg liveVars graph
                 let code =  getAddrOfTemp n1 reg env2 @ getAddrOfTemp n2 tempReg2 env2
                             @ prim2Code ope liveVars graph reg tempReg2
-                exprCodes @ evictAndRestore n2 tempReg2 env2 code,env2
+                env2, exprCodes @ evictAndRestore n2 tempReg2 env2 code
             | Spill,r->
                 let code = getAddrOfTemp n1 reg env2 @ prim2Code ope liveVars graph reg r
-                exprCodes @ code, env2
+                env2, exprCodes @ code
             | r, Spill-> 
                 let code = getAddrOfTemp n2 reg env2 @ prim2Code ope liveVars graph r reg
-                exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2
+                env2, exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)]
             | r1,r2 ->
-                exprCodes @ prim2Code ope liveVars graph r1 r2
-                @ movToRetReg reg r1,env2
+                env2, exprCodes @ prim2Code ope liveVars graph r1 r2
+                @ movToRetReg reg r1
         | _ -> failwith "wrong abstract syntax in Prim2"
     | Andalso(e1, e2) ->
         //e2 should also be saved in tr
         let labend = newLabel()
-        let e1Code, env1 = cExpr e1 varEnv funEnv reg liveVars graph
-        let e2Code, env2 = cExpr e2 env1 funEnv reg liveVars graph
+        let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+        let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
         match e1,e2 with
         | Temp(n1, _),Temp(n2, _) ->
             match Map.find n1 graph, Map.find n2 graph with
@@ -363,25 +370,25 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let code2 = getAddrOfTemp n2 reg env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg reg, Cst 0);Jump("jz", labend)]
                                                    @ e2Code @ code2 @ [Label labend]               
-                retCode,env2
+                env2, retCode
             | r, Spill ->
                 let code1 = getAddrOfTemp n1 r env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
                                      @ e2Code @ [Label labend] @ movToRetReg reg r           
-                retCode,env2
+                env2, retCode
             | Spill, r ->
                 let code2 = getAddrOfTemp n2 r env2
                 let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
                                      @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r  
-                retCode, env2
+                env2, retCode
             | r1,r2 ->
-                e1Code @ [Ins2("cmp", Reg r1, Cst 0);Jump("jz", labend)]
-                     @ e2Code @ [Label labend] @ movToRetReg reg r2 ,env2
+                env2, e1Code @ [Ins2("cmp", Reg r1, Cst 0);Jump("jz", labend)]
+                     @ e2Code @ [Label labend] @ movToRetReg reg r2 
         | _ -> failwith "wrong abstract syntax in Andalso"        
     | Orelse(e1,e2) ->
         let labend = newLabel()
-        let e1Code, env1 = cExpr e1 varEnv funEnv reg liveVars graph
-        let e2Code, env2 = cExpr e2 env1 funEnv reg liveVars graph 
+        let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+        let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
         match e1,e2 with
         | Temp(n1, _),Temp(n2, _) ->
             match Map.find n1 graph, Map.find n2 graph with
@@ -390,24 +397,24 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 let code2 = getAddrOfTemp n2 reg env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg reg, Cst 0);Jump("jnz", labend)]
                                                    @ e2Code @ code2 @ [Label labend]               
-                retCode, env2
+                env2, retCode
             | r, Spill -> //TODO make sure the correct side of || is moved into reg
                 let code2 = getAddrOfTemp n2 r env2
                 let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
                                      @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r
-                retCode, env2
+                env2, retCode
             | Spill, r ->
                 let code1 = getAddrOfTemp n1 r env2
                 let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
                                  @ e2Code @ [Label labend] @ movToRetReg reg r   
-                retCode, env2
+                env2, retCode
             | r1,r2 ->
-                e1Code @ [Ins2("cmp", Reg r1, Cst 0)] @ movToRetReg r2 r1 @[Jump("jnz", labend)]
-                       @ e2Code @ [Label labend] @ movToRetReg reg r2,env2
+                env2, e1Code @ [Ins2("cmp", Reg r1, Cst 0)] @ movToRetReg r2 r1 @[Jump("jnz", labend)]
+                       @ e2Code @ [Label labend] @ movToRetReg reg r2
         | _ -> failwith "wrong abstract syntax in Orelse"        
     | Call(f, es) ->
-        let code = callfun f es varEnv funEnv reg liveVars graph
-        code,varEnv
+        let env, code = callfun f es varEnv funEnv reg liveVars graph
+        env, code
     | Temp(n, e) ->
         match Map.find n graph with
         | Spill ->
@@ -415,11 +422,13 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             match getUnusedRegister graph liveVars with
             | None ->
                 let tr = getTemp Dummy liveVars graph //getTemp always returns a register that is not spill.
-                let eCode,env1 = cExpr e newEnv funEnv tr liveVars graph
-                code @ evictAndRestore n tr env1 (eCode @ putValInAddrOfTemp n tr env1),env1
+                printfn "NONE: now in Temp with given %A and found %A" reg, tr
+                let env1, eCode = cExpr e newEnv funEnv tr liveVars graph
+                env1, code @ evictAndRestore n tr env1 (eCode @ putValInAddrOfTemp n tr env1)
             | Some r ->
-                let eCode, env1 = cExpr e newEnv funEnv r liveVars graph
-                code @ eCode @ putValInAddrOfTemp n r env1, env1
+                printfn "SOME: now in Temp with given %A and found %A" reg, r
+                let env1, eCode = cExpr e newEnv funEnv r liveVars graph
+                env1, code @ eCode @ putValInAddrOfTemp n r env1
         | r -> cExpr e varEnv funEnv r liveVars graph
             
         
@@ -448,6 +457,7 @@ and cAccess access varEnv funEnv reg liveVars graph =
       | Locvar addr, _ ->
           match Map.find x graph with
           | Spill ->
+              printfn "AccVar for Spill"
               [Ins2("lea", Reg reg, RbpOff (8*addr))],varEnv, reg
           | r -> [],varEnv, r
     | AccDeref e ->
@@ -455,40 +465,41 @@ and cAccess access varEnv funEnv reg liveVars graph =
         |Temp(n,expr) ->
             match expr with 
             | Prim2(ope, e1, e2) -> //pointer arithmetic
-                let e1Code, env1 = cExpr e1 varEnv funEnv reg liveVars graph
-                let e2Code,env2 = cExpr e2 env1 funEnv reg liveVars graph
+                let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+                let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
                 let exprCodes = e1Code @ e2Code
                 match e1,e2 with
                 | Temp(n1, _),Temp(n2, _) ->
                     match Map.find n1 graph, Map.find n2 graph with
-                    | Spill,Spill->
-                        let tempReg2 = getTemp reg liveVars graph
-                        let code =  getAddrOfTemp n1 reg env2 @ getAddrOfTemp n2 tempReg2 env2
-                                    @ pointerArithmeticCode ope reg tempReg2
-                        exprCodes @ evictAndRestore n2 tempReg2 env2 code,env2, reg //returns reg cause the result is there
-                    | Spill,r->
-                        let code = getAddrOfTemp n1 reg env2 @ pointerArithmeticCode ope reg r
-                        exprCodes @ code, env2, reg
-                    | r, Spill-> 
-                        let code = getAddrOfTemp n2 reg env2 @ pointerArithmeticCode ope r reg
-                        exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2, r
+                    | Spill,Spill-> failwith "not implemented accDeref s*s"
+                        // let tempReg2 = getTemp reg liveVars graph
+                        // let code =  getAddrOfTemp n1 reg env2 @ getAddrOfTemp n2 tempReg2 env2
+                        //             @ pointerArithmeticCode ope reg tempReg2
+                        // exprCodes @ evictAndRestore n2 tempReg2 env2 code,env2, reg //returns reg cause the result is there
+                    | Spill,r-> failwith "not implemented accDeref s*r"
+                        // let code = getAddrOfTemp n1 reg env2 @ pointerArithmeticCode ope reg r
+                        // exprCodes @ code, env2, reg
+                    | r, Spill-> failwith "not implemented accDeref r*s"
+                        // let code = getAddrOfTemp n2 reg env2 @ pointerArithmeticCode ope r reg
+                        // exprCodes @ code @ [Ins2("mov",Reg reg, Reg r)],env2, r
                     | r1,r2 ->
                         exprCodes @ pointerArithmeticCode ope r1 r2, env2, r1
                 | _ -> failwith "wrong abstract syntax for pointer arithmetic - should contain temp" 
             | _ ->
-                let code, env = cExpr e varEnv funEnv reg liveVars graph
+                let env, code = cExpr e varEnv funEnv reg liveVars graph
                 match Map.find n graph with
-                | Spill -> failwith "not implemented"
+                | Spill -> failwith "not implemented accDeref (not pointer arimethic)"
                 | addr     -> code @ [Ins2("mov", Reg reg, Ind addr)], env, reg
         | _ -> failwith "wrong abstract syntax in AccDeref"
     | AccIndex(acc, idx) ->
       let accCode, env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
-      let idxCode,env2 = cExpr idx env1 funEnv reg liveVars graph
+      let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
       match idx with
       | Temp(n, _) ->
              match Map.find n graph with
-                | Spill -> accCode @ [Ins2("mov", Reg tr', Ind tr')] @ idxCode
-                            @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr', Reg reg)],env2, tr' //tr' from access
+                | Spill -> failwith "not implemented accIndex"
+                            // accCode @ [Ins2("mov", Reg tr', Ind tr')] @ idxCode
+                            // @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr', Reg reg)],env2, tr' //tr' from access
                 | r -> accCode @ [Ins2("mov", Reg tr', Ind tr')] @ idxCode
                         @ [Ins2("sal", Reg r, Cst 3);Ins2("sub", Reg tr', Reg r)],env2, tr' //tr' from access
       | _ -> failwith "wrong abstract syntax in AccIndex"
@@ -497,9 +508,9 @@ and cAccess access varEnv funEnv reg liveVars graph =
 (* Generate code to evaluate a list es of expressions: *)
 
 and cExprs es varEnv funEnv reg liveVars graph = 
-    List.concat(List.map (fun e ->
-        let eCode,_ = cExpr e varEnv funEnv reg liveVars graph
-        eCode @ [Ins1("push", Reg reg)]) es)
+        List.fold(fun (envs, instrs) elem ->
+            let env,eCode = cExpr elem envs funEnv reg liveVars graph
+            env, eCode @ [Ins1("push", Reg reg)] @ instrs) (varEnv, []) es
 
 (* Generate code to evaluate arguments es and then call function f: *)
 
@@ -507,8 +518,9 @@ and callfun f es varEnv funEnv tr liveVars graph =
     let (labf, tyOpt, paramdecs) = lookup funEnv f
     let argc = List.length es
     if argc = List.length paramdecs then
-        preserveAll liveVars (cExprs es varEnv funEnv tr liveVars graph
-                          @ [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)]) graph
+        let env, code = cExprs es varEnv funEnv tr liveVars graph
+        env, preserveAll liveVars (code @
+                              [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)]) graph
     else
         raise (Failure (f + ": parameter/argument mismatch"))
 
@@ -520,7 +532,7 @@ let cProgram (DProg topdecs) graph : x86 list * int * x86 list * x86 list =
     let compilefun (tyOpt, f, xs, body) =
         let (labf, _, paras) = lookup funEnv f
         let (envf, fdepthf) = bindParams paras (globalVarEnv, 0)
-        let code = cStmt body (envf, fdepthf) funEnv graph
+        let _, code = cStmt body (envf, fdepthf) funEnv graph
         let arity = List.length paras
         [FLabel (labf, arity)] @ code @ [Ins2("add", Reg Rsp, Cst (8*arity));
                                          Ins("pop rbp");

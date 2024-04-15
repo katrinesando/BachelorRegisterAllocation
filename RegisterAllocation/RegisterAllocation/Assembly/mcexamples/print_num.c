@@ -1,8 +1,6 @@
-void main(int n)
+void main()
 {
    int a;
-   a = 2;
-   int *b;
-   b = &a;
-   print (*b);
+   a = 4;
+   print (a);
 }
