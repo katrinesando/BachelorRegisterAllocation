@@ -83,9 +83,10 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
      
 (* Get temporary register not used by a var in liveVars that isn't pres *)
 let getTemp pres liveVars graph =
-    List.fold (fun toEvict elem ->
+    let r = List.fold (fun toEvict elem ->
         let used = Map.find elem graph
         if not (mem used [pres;Dummy;Spill]) then used else toEvict) Rdx liveVars
+    if pres <> Rdx then r else Rcx
 
 
 (* ------------------------------------------------------------------- *)
@@ -287,34 +288,27 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             match acc with
             | AccIndex _ | AccVar _-> newEnv, code @ [Ins2("mov", Reg tr, Ind tr)] @ movToRetReg reg tr 
             | _ -> newEnv, code @ movToRetReg reg tr 
-    | Assign(acc, e) -> //TODO figure out how this works when acc is not spilled vs when it is
-        let accCode,env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
+    | Assign(acc, e) ->
+        let accCode,env1, tr = cAccess acc varEnv funEnv reg liveVars graph
         match e with
         | Temp(n, _) ->
             match Map.find n graph with
-            | Spill -> //failwith "not implemented assign"
-                let (env2, eCode), tempReg = 
-                    if reg <> tr' then cExpr e env1 funEnv reg liveVars graph, reg
-                    else
-                        let tempReg = getTemp tr' liveVars graph
-                        cExpr e env1 funEnv tempReg liveVars graph, tempReg
-                match accCode with
-                | [] -> 
-                    let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Reg tr', Reg tempReg)] //tr' is the register returned from cAccess
-                    let addrCode = getAddrOfVarInReg tr' tempReg graph liveVars env2
-                    env2, accCode @
-                    evictAndRestore n tempReg env2 (eCode @ [Ins1("push", Reg tempReg)] @ addrCode @[Ins1("pop", Reg tr');Ins2("mov", Ind tempReg, Reg tr')]@ code)
-                    @ movToRetReg reg tr'
-                | _  ->
-                    let code = getAddrOfTemp n tempReg env2 @ [Ins2("mov", Ind tr', Reg tempReg)] //tr' is the register returned from cAccess
-                    env2, accCode @ evictAndRestore n tempReg env2 (eCode @ code) @ movToRetReg reg tr'
+            | Spill ->
+                if tr <> reg then //var to be assigned is not spilled
+                    let env2, eCode = cExpr e env1 funEnv reg liveVars graph
+                    let addrCode = getAddrOfVarInReg tr reg graph liveVars env2
+                    env2, eCode@ [Ins1("push", Reg reg)] @ addrCode @ [Ins1("pop", Reg tr);Ins2("mov", Ind reg, Reg tr)]  @ movToRetReg reg tr
+                else
+                    let tempReg = getTemp reg liveVars graph
+                    let env2, eCode = cExpr e env1 funEnv tempReg liveVars graph
+                    env2, preserve tempReg liveVars (accCode @ eCode @ [Ins2("mov", Ind tr, Reg tempReg)]) graph
             | r ->
                 let env2, eCode = cExpr e env1 funEnv reg liveVars graph
                 match accCode with //If empty list, accCode register contains values
                 | [] ->
-                    let addrCode = getAddrOfVarInReg tr' r graph liveVars env2
-                    env2, eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr');Ins2("mov", Ind r, Reg tr')]  @ movToRetReg reg tr'
-                | _  -> env2, accCode @ eCode @ [Ins2("mov", Ind tr', Reg r)]  @ movToRetReg reg tr'                
+                    let addrCode = getAddrOfVarInReg tr r graph liveVars env2
+                    env2, eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr);Ins2("mov", Ind r, Reg tr)]  @ movToRetReg reg tr
+                | _  -> env2, accCode @ eCode @ [Ins2("mov", Ind tr, Reg r)]  @ movToRetReg reg tr                
         | _ -> failwith "wrong absyn in Assign"
     | CstI i         ->
         varEnv, [Ins2("mov", Reg reg, Cst i)]
@@ -328,8 +322,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         match e1 with
         | Temp(n,_)->
             match Map.find n graph with
-            | Spill -> //failwith "not implemented prim1" 
-                 env1, eCode @ getAddrOfTemp n reg env1 @ prim1Code ope reg liveVars graph
+            | Spill ->
+                 env1, eCode @ prim1Code ope reg liveVars graph
             | r ->
                 env1, eCode @ prim1Code ope r liveVars graph
                         @ movToRetReg reg r
@@ -419,16 +413,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         match Map.find n graph with
         | Spill ->
             let newEnv,code = allocate Locvar (TypI, n) varEnv
-            match getUnusedRegister graph liveVars with
-            | None ->
-                let tr = getTemp Dummy liveVars graph //getTemp always returns a register that is not spill.
-                printfn "NONE: now in Temp with given %A and found %A" reg, tr
-                let env1, eCode = cExpr e newEnv funEnv tr liveVars graph
-                env1, code @ evictAndRestore n tr env1 (eCode @ putValInAddrOfTemp n tr env1)
-            | Some r ->
-                printfn "SOME: now in Temp with given %A and found %A" reg, r
-                let env1, eCode = cExpr e newEnv funEnv r liveVars graph
-                env1, code @ eCode @ putValInAddrOfTemp n r env1
+            let env1, eCode = cExpr e newEnv funEnv reg liveVars graph
+            env1, code @ eCode @ putValInAddrOfTemp n reg env1
         | r -> cExpr e varEnv funEnv r liveVars graph
             
         
