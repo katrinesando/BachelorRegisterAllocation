@@ -69,19 +69,28 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
 (* Helper function for searching in the interference graph *)
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
-    let mins = Map.fold (fun (_,min as acc) name (deg,_,_) ->
-                        if deg < min then (name,deg) else acc)
-    let rec aux g stack (minname, mindeg) =
+    let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_,_) ->
+                        if deg < min then (name,deg,mxn,max)
+                        elif deg >= max then (mn,min,name,deg)
+                        else acc )
+    
+    let rec aux g stack (minname, mindeg,maxname,maxdeg) =
         match Map.tryFind minname g with
         | None-> stack
         | Some(degree, cl, adjList) ->
-                let newGraph = decrementDegree g adjList |> Map.remove minname
-                let newMins = mins (minname,Int32.MaxValue) newGraph
                 if degree < k then
+                    let newGraph = decrementDegree g adjList |> Map.remove minname
+                    let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
                     aux newGraph ((minname,cl,adjList)::stack) newMins
-                else aux newGraph ((minname,Spill,adjList)::stack) newMins    
+                else
+                    match Map.tryFind maxname g with
+                    | None -> stack
+                    | Some (_, cl, adjList) ->
+                        let newGraph = decrementDegree g adjList |> Map.remove maxname
+                        let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
+                        aux newGraph ((maxname,Spill,adjList)::stack) newMins    
             
-    aux graph [] (mins ("",Int32.MaxValue) graph)
+    aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
 let rebuildAndColour stack =
     let rec aux s graph =
@@ -97,6 +106,6 @@ let rebuildAndColour stack =
             Map.add name Spill graph |> //If everything is over k, everything is Spilled - look into fix for future
             aux ns
         | _ -> failwith "something went wrong"
-    aux stack Map.empty
+    aux stack Map.empty 
    
 let regAlloc prog = buildGraph prog |> simplify |> rebuildAndColour 
