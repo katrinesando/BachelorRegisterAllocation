@@ -61,8 +61,8 @@ let buildGraph (DProg prog) : interferenceGraph =
     Map.map (fun _ (degree,_, lst) -> (List.length lst, Dummy, lst)) //Populate map with degree information
     
 let decrementDegree g adjList = List.fold (fun acc elem ->
-                        match Map.tryFind elem g with
-                        | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) g
+                        match Map.tryFind elem acc with
+                        | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) acc
                         | None -> acc ) g adjList
   
 
@@ -70,25 +70,27 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
     let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_,_) ->
-                        if deg < min then (name,deg,mxn,max)
-                        elif deg >= max then (mn,min,name,deg)
-                        else acc )
+                        let na = if deg < min then (name,deg,mxn,max) else acc
+                        if deg > max then (mn,min,name,deg) else na)
     
     let rec aux g stack (minname, mindeg,maxname,maxdeg) =
         match Map.tryFind minname g with
         | None-> stack
         | Some(degree, cl, adjList) ->
+                let newGraph = decrementDegree g adjList |> Map.remove minname
+                let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
                 if degree < k then
-                    let newGraph = decrementDegree g adjList |> Map.remove minname
-                    let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
+                    
                     aux newGraph ((minname,cl,adjList)::stack) newMins
                 else
-                    match Map.tryFind maxname g with
-                    | None -> stack
-                    | Some (_, cl, adjList) ->
-                        let newGraph = decrementDegree g adjList |> Map.remove maxname
-                        let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
-                        aux newGraph ((maxname,Spill,adjList)::stack) newMins    
+                    aux newGraph ((minname,Spill,adjList)::stack) newMins
+                    //match Map.tryFind maxname g with
+                    //| None -> stack
+                    //| Some (_, cl, adjList) ->
+                    //    let newGraph = decrementDegree g adjList |> Map.remove maxname
+                    //    let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
+                    //    aux newGraph ((maxname,Spill,adjList)::stack) newMins
+                            
             
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
