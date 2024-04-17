@@ -70,17 +70,17 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
     let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_,_) ->
-                        let na = if deg < min then (name,deg,mxn,max) else acc
-                        if deg > max then (mn,min,name,deg) else na)
+                        if deg < min then (name,deg,mxn,max) else acc)
+                        //if deg > max then (mn,min,name,deg) else na)
     
     let rec aux g stack (minname, mindeg,maxname,maxdeg) =
         match Map.tryFind minname g with
-        | None-> stack
+        | None->
+            stack
         | Some(degree, cl, adjList) ->
                 let newGraph = decrementDegree g adjList |> Map.remove minname
                 let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
                 if degree < k then
-                    
                     aux newGraph ((minname,cl,adjList)::stack) newMins
                 else
                     aux newGraph ((minname,Spill,adjList)::stack) newMins

@@ -15,7 +15,7 @@ let rec rStmt stmt depth map counter tempCount =
         While(Temp(("/"+ string newTempCount2), ex), newBody), newCounter, newTempCount2+1
     | Expr e ->
         let ex, newTempCount1 = rExpr e depth map tempCount
-        Expr(Temp(("/"+ string newTempCount1), ex)), counter, newTempCount1
+        Expr(Temp(("/"+ string newTempCount1), ex)), counter, newTempCount1+1
         //Expr ex, counter, newTempCount1
     | Block stmts ->
         let rec loop rest acc c tc =
@@ -35,7 +35,7 @@ and rStmtOrDec stmtOrDec depth map counter tempCount =
     match stmtOrDec with 
     | Stmt stmt    ->
         let stmt, newCounter, newTempCount = rStmt stmt depth map counter tempCount
-        (Stmt(stmt), map), newCounter, newTempCount+1
+        (Stmt(stmt), map), newCounter, newTempCount
     | Dec (typ, x) ->
         let newName = x + string counter 
         let newmap = addToMap depth newName map
