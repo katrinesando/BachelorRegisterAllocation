@@ -18,12 +18,12 @@ let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) livenes
     else
         let newNode = node name
         let newLst = removeFromList liveness name
-        let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst) graph newLst
-        Map.fold (fun acc k (_,_,lst) ->
-            if mem k newLst && not (mem newNode lst) then 
-                Map.add k (0,Dummy,newNode::lst) acc 
-            else acc) newGraph newGraph |>
-        Map.add name (List.fold (fun (_,_,acc) elem -> (0,Dummy,(elem::acc))) (0,Dummy,[]) newLst) //adds all elem from newLst to adj of k
+        let newGraph = List.fold (fun acc elem->
+            match Map.tryFind elem acc with
+            |Some (d,_,lst)->
+                if mem newNode lst then acc else Map.add elem (d+1,Dummy,newNode::lst) acc
+            |None -> acc) graph newLst
+        Map.add newNode (List.length newLst,Dummy,newLst) newGraph//adds all elem from newLst to adj of k
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
@@ -57,8 +57,8 @@ let buildGraph (DProg prog) : interferenceGraph =
             | DFundec(_, _, _, body, liveness) ->
                 let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
                 loop xs (graphFromDStmt body newlst)  
-    loop prog Map.empty |>
-    Map.map (fun _ (degree,_, lst) -> (List.length lst, Dummy, lst)) //Populate map with degree information
+    loop prog Map.empty //|>
+    //Map.map (fun _ (degree,_, lst) -> (List.length lst, Dummy, lst)) //Populate map with degree information
     
 let decrementDegree g adjList = List.fold (fun acc elem ->
                         match Map.tryFind elem acc with
@@ -70,7 +70,7 @@ let decrementDegree g adjList = List.fold (fun acc elem ->
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
     let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_,_) ->
-                       let (nmn, nmin, nmxn, nmax)as na = if deg < min then (name,deg,mxn,max) else acc
+                       let nmn, nmin, nmxn, nmax as na = if deg < min then (name,deg,mxn,max) else acc
                        if deg > max then (nmn,nmin,name,deg) else na)
     
     let rec aux g stack (minname, mindeg,maxname,maxdeg) =
