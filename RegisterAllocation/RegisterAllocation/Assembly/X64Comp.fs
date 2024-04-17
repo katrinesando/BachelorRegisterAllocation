@@ -101,14 +101,12 @@ let evictAndRestore temp tr varEnv code=
         | Locvar addr,_ -> [Ins2("mov", RbpOff(8*addr), Reg tr)]
     code @ restoreCode
 let preserveCallerSaveRegs live graph code =
-    //let regToSave = [Rcx;Rdx;Rsi;]
     let inUse = List.fold (fun inUse elem ->
         let reg = Map.find elem graph
         if Spill <> reg then reg::inUse else inUse) [] live
     List.fold(fun acc elem -> pushAndPop elem acc ) code inUse
 
 (* Global environments for variables and functions *)
-
 let makeGlobalEnvs (topdecs) : varEnv * funEnv * x86 list = 
     let rec addv decs varEnv funEnv = 
         match decs with 
@@ -300,14 +298,20 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         | Temp(n, _) ->
             match Map.find n graph with
             | Spill ->
-                if tr <> reg then //var to be assigned is not spilled
-                    let env2, eCode = cExpr e env1 funEnv reg liveVars graph
+                let env2, eCode, reg =
+                    if tr <> reg then //var to be assigned is not spilled
+                        let env2, eCode = cExpr e env1 funEnv reg liveVars graph
+                        (env2, eCode, reg)
+                    else
+                        let tempReg = getTemp reg liveVars graph
+                        let env2, eCode = cExpr e env1 funEnv tempReg liveVars graph
+                        (env2, eCode, tempReg)
+                match accCode with //If empty list, accCode register contains values
+                | [] -> 
                     let addrCode = getAddrOfVarInReg tr reg graph liveVars env2
-                    env2, eCode@ [Ins1("push", Reg reg)] @ addrCode @ [Ins1("pop", Reg tr);Ins2("mov", Ind reg, Reg tr)]  @ movToRetReg reg tr
-                else
-                    let tempReg = getTemp reg liveVars graph
-                    let env2, eCode = cExpr e env1 funEnv tempReg liveVars graph
-                    env2, preserve tempReg liveVars (eCode @ accCode @ [Ins2("mov", Ind tr, Reg tempReg)]) graph
+                    env2, eCode@ [Ins1("push", Reg reg)] @ addrCode @ [Ins1("pop", Reg tr);Ins2("mov", Ind reg, Reg tr)] @ movToRetReg reg tr
+                | _ ->
+                    env2, eCode @ accCode @ preserve reg liveVars [Ins2("mov", Ind tr, Reg reg)] graph
             | r ->
                 let env2, eCode = cExpr e env1 funEnv reg liveVars graph
                 match accCode with //If empty list, accCode register contains values
@@ -493,16 +497,25 @@ and cAccess access varEnv funEnv reg liveVars graph =
                 | addr     -> code @ [Ins2("mov", Reg reg, Ind addr)], env, reg
         | _ -> failwith "wrong abstract syntax in AccDeref"
     | AccIndex(acc, idx) ->
-      let accCode, env1, tr' = cAccess acc varEnv funEnv reg liveVars graph
-      let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
+      let accCode, env1, tr = cAccess acc varEnv funEnv reg liveVars graph
       match idx with
       | Temp(n, _) ->
              match Map.find n graph with
-                | Spill -> failwith "not implemented accIndex"
-                            // accCode @ [Ins2("mov", Reg tr', Ind tr')] @ idxCode
-                            // @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr', Reg reg)],env2, tr' //tr' from access
-                | r -> accCode @ [Ins2("mov", Reg tr', Ind tr')] @ idxCode
-                        @ [Ins2("sal", Reg r, Cst 3);Ins2("sub", Reg tr', Reg r)],env2, tr' //tr' from access
+                | Spill -> //failwith "not implemented accIndex"
+                            if tr <> reg then
+                                let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
+                                accCode @ [Ins2("mov", Reg tr, Ind tr)] @ idxCode
+                                @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr, Reg reg)],env2, tr //tr' from access
+                            else
+                                printfn "always here :)"
+                                let tempReg = getTemp reg liveVars graph
+                                let env2, idxCode = cExpr idx env1 funEnv tempReg liveVars graph
+                                accCode @ [Ins2("mov", Reg reg, Ind reg)] @ idxCode @
+                                (preserve tempReg liveVars [Ins2("sal", Reg tempReg, Cst 3);Ins2("sub", Reg reg, Reg tempReg)] graph),env2, reg
+                | r ->
+                        let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
+                        accCode @ [Ins2("mov", Reg tr, Ind tr)] @ idxCode
+                        @ [Ins2("sal", Reg r, Cst 3);Ins2("sub", Reg tr, Reg r)],env2, tr //tr' from access
       | _ -> failwith "wrong abstract syntax in AccIndex"
           
 
