@@ -100,7 +100,12 @@ let evictAndRestore temp tr varEnv code=
                         Ins1("pop", Reg tr); ]
         | Locvar addr,_ -> [Ins2("mov", RbpOff(8*addr), Reg tr)]
     code @ restoreCode
-    
+let preserveCallerSaveRegs live graph code =
+    //let regToSave = [Rcx;Rdx;Rsi;]
+    let inUse = List.fold (fun inUse elem ->
+        let reg = Map.find elem graph
+        if Spill <> reg then reg::inUse else inUse) [] live
+    List.fold(fun acc elem -> pushAndPop elem acc ) code inUse
 
 (* Global environments for variables and functions *)
 
@@ -128,8 +133,8 @@ let prim1Code ope tr liveVars graph =
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> preserve Rdi liveVars [Ins2("mov",Reg Rdi, Reg tr);PRINTI] graph
-           | "printc" -> preserve Rdi liveVars [Ins2("mov",Reg Rdi, Reg tr);PRINTC] graph
+           | "printi" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTI]
+           | "printc" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTC]
            | _        -> raise (Failure "unknown primitive 1")
 let prim2Code ope liveVars graph tr tr' =
     match ope with
