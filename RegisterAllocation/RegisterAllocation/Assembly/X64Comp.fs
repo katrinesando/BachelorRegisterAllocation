@@ -100,7 +100,12 @@ let evictAndRestore temp tr varEnv code=
                         Ins1("pop", Reg tr); ]
         | Locvar addr,_ -> [Ins2("mov", RbpOff(8*addr), Reg tr)]
     code @ restoreCode
-    
+let preserveCallerSaveRegs live graph code =
+    //let regToSave = [Rcx;Rdx;Rsi;]
+    let inUse = List.fold (fun inUse elem ->
+        let reg = Map.find elem graph
+        if Spill <> reg then reg::inUse else inUse) [] live
+    List.fold(fun acc elem -> pushAndPop elem acc ) code inUse
 
 (* Global environments for variables and functions *)
 
@@ -128,8 +133,8 @@ let prim1Code ope tr liveVars graph =
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> preserve Rdi liveVars [Ins2("mov",Reg Rdi, Reg tr);PRINTI] graph
-           | "printc" -> preserve Rdi liveVars [Ins2("mov",Reg Rdi, Reg tr);PRINTC] graph
+           | "printi" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTI]
+           | "printc" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTC]
            | _        -> raise (Failure "unknown primitive 1")
 let prim2Code ope liveVars graph tr tr' =
     match ope with
@@ -188,7 +193,7 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x86 list
         let labend  = newLabel()
         let ifCode env =
                     let env1, code1 = cStmt stmt1 env funEnv graph
-                    let env2, code2 = cStmt stmt1 env1 funEnv graph
+                    let env2, code2 = cStmt stmt2 env1 funEnv graph
                     [Jump("jz", labelse)] 
                     @ code1 @ [Jump("jmp", labend)]
                     @ [Label labelse] @ code2

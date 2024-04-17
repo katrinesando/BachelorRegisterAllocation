@@ -3,17 +3,20 @@
 open Utility
 open Absyn
 open DecorAbsyn
+let removeTemps lst =
+    List.filter(fun (elem:string) -> if (elem.StartsWith "/") then false else true) lst //for simplicity all temp are removed from liveness
+
 let rec aStmt stmt lst =
     match stmt with
     | If(e, stmt1, stmt2) ->
         let (elseStmt, lst1) = aStmt stmt2 lst
         let (thenStmt, lst2) = aStmt stmt1 lst1
         let ex,newlist = aExpr e lst2
-        DIf(ex, thenStmt, elseStmt, lst), newlist
+        DIf(ex, thenStmt, elseStmt, newlist), newlist
     | While(e, body) ->
         let ex, lst1 = aExpr e lst
         let newbody,newlist = aStmt body lst1
-        DWhile(ex,newbody, lst), newlist
+        DWhile(ex,newbody, lst1), newlist
     | Expr e ->
         let ex, newlist = aExpr e lst
         DExpr(ex,newlist), newlist
@@ -25,21 +28,21 @@ let rec aStmt stmt lst =
                 let newstmt, list = aStmtOrDec x accLive
                 loop xs (newstmt::accStmts, list)
         let (stmtLst, newlist) = loop (List.rev stmts) ([],lst)
-        DBlock(stmtLst, lst),newlist
+        DBlock(stmtLst, removeTemps lst),newlist
     | Return None -> DReturn(None, lst), lst
     | Return (Some e) ->
         let ex, newlist = aExpr e lst
         DReturn(Some ex, lst), newlist
   
 and aStmtOrDec stmtOrDec lst  =
-    let tempRemoved = List.filter(fun (elem:string) -> if (elem.StartsWith "/") then false else true ) lst //for simplicity all temp are removed from liveness
+    let tempsRemoved = removeTemps lst
     match stmtOrDec with 
     | Stmt stmt    ->
-        let newstmt, newlist = aStmt stmt tempRemoved
-        (DStmt(newstmt,tempRemoved), newlist)
+        let newstmt, newlist = aStmt stmt tempsRemoved
+        (DStmt(newstmt,tempsRemoved), newlist)
     | Dec (typ, x) ->
-        let newlist = removeFromList tempRemoved x
-        DDec(typ, x, tempRemoved),newlist
+        let newlist = removeFromList tempsRemoved x
+        DDec(typ, x, tempsRemoved),newlist
     
 and aExpr (e : expr) lst = 
     match e with
@@ -79,13 +82,8 @@ and aExpr (e : expr) lst =
         let newlst = (loop param lst)
         Call(name,param), newlst
     | Temp(name, e) ->
-        (*match e with
-        | Prim1("printc", _) | Prim1("printi", _) ->
-            let newExpr1, lst1 = aExpr e lst
-            newExpr1, lst1
-        | _ ->*)
-            let newExpr1, lst1 = aExpr e lst
-            Temp(name, newExpr1), name::lst1
+        let newExpr1, lst1 = aExpr e lst
+        Temp(name, newExpr1), name::lst1
 and aAccess access lst  =
   match access with
   | AccVar x            ->
@@ -239,4 +237,4 @@ let topDownAnalysis (DProg prog) =
     DProg(aux (prog) ([],[], Map.empty))   
 
 
-let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis
+let livenessAnotator prog = bottomUpAnalysis prog //|> topDownAnalysis

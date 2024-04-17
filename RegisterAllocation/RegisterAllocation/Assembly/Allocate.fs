@@ -75,7 +75,8 @@ let simplify (graph : interferenceGraph) =
     
     let rec aux g stack (minname, mindeg,maxname,maxdeg) =
         match Map.tryFind minname g with
-        | None-> stack
+        | None->
+            stack
         | Some(degree, cl, adjList) ->
                 let newGraph = decrementDegree g adjList |> Map.remove minname
                 let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph

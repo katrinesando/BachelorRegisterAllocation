@@ -68,6 +68,7 @@
         <Content Include="Assembly\mcexamples\ex11.o" />
         <ClCompile Include="Assembly\mcexamples\name.c" />
         <ClCompile Include="Assembly\mcexamples\ex_graph.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_call.c" />
         <ClCompile Include="Assembly\test.c" />
     </ItemGroup>
 
