@@ -188,7 +188,7 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x86 list
         let labend  = newLabel()
         let ifCode env =
                     let env1, code1 = cStmt stmt1 env funEnv graph
-                    let env2, code2 = cStmt stmt1 env1 funEnv graph
+                    let env2, code2 = cStmt stmt2 env1 funEnv graph
                     [Jump("jz", labelse)] 
                     @ code1 @ [Jump("jmp", labend)]
                     @ [Label labelse] @ code2
