@@ -23,7 +23,7 @@ let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) livenes
             |Some (d,_,lst)->
                 if mem newNode lst then acc else Map.add elem (d+1,Dummy,newNode::lst) acc
             |None -> acc) graph newLst
-        Map.add newNode (List.length newLst,Dummy,newLst) newGraph//adds all elem from newLst to adj of k
+        Map.add newNode (List.length newLst,Dummy,newLst) newGraph//adds all elem from newLst to adj of newNode
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
@@ -57,8 +57,7 @@ let buildGraph (DProg prog) : interferenceGraph =
             | DFundec(_, _, _, body, liveness) ->
                 let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
                 loop xs (graphFromDStmt body newlst)  
-    loop prog Map.empty //|>
-    //Map.map (fun _ (degree,_, lst) -> (List.length lst, Dummy, lst)) //Populate map with degree information
+    loop prog Map.empty
     
 let decrementDegree g adjList = List.fold (fun acc elem ->
                         match Map.tryFind elem acc with
