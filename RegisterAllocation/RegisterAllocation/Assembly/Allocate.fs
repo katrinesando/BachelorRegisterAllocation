@@ -10,9 +10,9 @@ Allowing RDX requires special handling across IMUL and IDIV *)
 
 
 type node = string //varname
-type interferenceGraph = Map<node,int * reg64 * node list> //name, degree * colour * node list
+type interferenceGraph = Map<node,int * node list> //name, degree * colour * node list
 
-let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) liveness =
+let addVarToGraph name (graph : interferenceGraph) liveness =
     if Map.containsKey name graph then
         graph
     else
@@ -20,10 +20,10 @@ let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) livenes
         let newLst = removeFromList liveness name
         let newGraph = List.fold (fun acc elem->
             match Map.tryFind elem acc with
-            |Some (d,_,lst)->
-                if mem newNode lst then acc else Map.add elem (d+1,Dummy,newNode::lst) acc
+            |Some (d,lst)->
+                if mem newNode lst then acc else Map.add elem (d+1,newNode::lst) acc
             |None -> acc) graph newLst
-        Map.add newNode (List.length newLst,Dummy,newLst) newGraph//adds all elem from newLst to adj of newNode
+        Map.add newNode (List.length newLst,newLst) newGraph//adds all elem from newLst to adj of newNode
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
@@ -61,14 +61,14 @@ let buildGraph (DProg prog) : interferenceGraph =
     
 let decrementDegree g adjList = List.fold (fun acc elem ->
                         match Map.tryFind elem acc with
-                        | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) acc
+                        | Some (deg, lst) -> Map.add elem (deg-1, lst) acc
                         | None -> acc ) g adjList
   
 
 (* Helper function for searching in the interference graph *)
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
-    let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_,_) ->
+    let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_) ->
                        let nmn, nmin, nmxn, nmax as na = if deg < min then (name,deg,mxn,max) else acc
                        if deg > max then (nmn,nmin,name,deg) else na)
     
@@ -76,11 +76,11 @@ let simplify (graph : interferenceGraph) =
         match Map.tryFind minname g with
         | None->
             stack
-        | Some(degree, cl, adjList) ->
+        | Some(degree, adjList) ->
                 let newGraph = decrementDegree g adjList |> Map.remove minname
                 let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
                 if degree < k then
-                    aux newGraph ((minname,cl,adjList)::stack) newMins
+                    aux newGraph ((minname,Dummy,adjList)::stack) newMins
                 else
                     aux newGraph ((minname,Spill,adjList)::stack) newMins
                     //match Map.tryFind maxname g with
