@@ -5,6 +5,8 @@ void main() {
     int n;
     n = 20; 
     int complex;
-    complex = n + (n + (n + (n + (n + (n +(n+(n+(n+(n+(n+(n+(n+n)))))))))))); //Too complex of an expression
+    complex = n + (n + (n + (n + (n + (n + (n + (n +(n+(n+(n+(n+(n+(n+(n+n)))))))))))))); //Too complex of an expression
+    print n; 
+   //complex = n + (n + n); 
     print complex;
 }
