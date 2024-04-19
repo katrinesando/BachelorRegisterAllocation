@@ -121,7 +121,7 @@ let rec topDownStmt dstmt livelist pointerRefs=
     | DIf(e, dstmt1, dstmt2, info) ->
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         let (thenDstmt, lst1, pr1) = topDownStmt dstmt1 lst pr
-        let (elseDstmt, lst2, pr2) = topDownStmt dstmt1 lst1 pr1
+        let (elseDstmt, lst2, pr2) = topDownStmt dstmt2 lst1 pr1
         DIf(expr, thenDstmt, elseDstmt, lst2), lst2, pr2
     | DWhile(e, dstmt, info) ->
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []

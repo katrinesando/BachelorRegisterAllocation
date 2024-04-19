@@ -134,9 +134,13 @@ let prim2Code ope liveVars graph tr tr' =
                | "/"   -> [Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx liveVars [Ins("cdq"); Ins1("idiv", Reg tr')] graph
                           @ [Ins2("mov", Reg tr, Reg Rax)]
-               | "%"   -> [Ins2("mov", Reg Rax, Reg tr)]
-                          @ ([Ins("cdq"); Ins1("idiv", Reg tr');Ins2("mov", Reg tr, Reg Rdx)] |>
-                          preserve Rdx liveVars <| graph)
+               | "%"   -> [Ins2("mov", Reg Rax, Reg tr)] @
+                          if tr <> Rdx then
+                              [Ins("cdq"); Ins1("idiv", Reg tr'); Ins2("mov", Reg tr, Reg Rdx)] |>
+                              preserve Rdx liveVars <| graph
+                          else
+                              ([Ins("cdq"); Ins1("idiv", Reg tr'); Ins2("mov", Reg Rax, Reg Rdx)] |>
+                              preserve Rdx liveVars <| graph) @ [Ins2("mov", Reg tr, Reg Rax)]
                | "==" | "!=" | "<" | ">=" | ">" | "<="
                   -> let setcompbits = (match ope with
                                         | "==" -> "sete al"
@@ -232,8 +236,20 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             | Spill ->
                 let tempReg = getTemp Dummy info graph
                 let env, code = cExpr e varEnv funEnv tempReg info graph
-                //code @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
-                preserve tempReg info (code @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]) graph
+                let restoreCode =
+                    let varName = List.fold (fun acc elem ->
+                        if Map.find elem graph = tempReg then elem else acc) "" info
+                    if varName.StartsWith '/' then []
+                    else
+                        let addr =
+                            match lookup (fst env) varName with
+                            | Locvar i, _ -> i
+                            | _ -> failwith "huh"
+                        [Ins2("lea", Reg tempReg, RbpOff (addr * 8));Ins2("mov",Reg tempReg, Ind tempReg)]
+                //Since temps always die after DExpr, the final instr tom ove val into addr of temp is useless
+                List.removeAt ((List.length code)-1) code
+                @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
+                @ restoreCode
             | r -> let env, code = cExpr e varEnv funEnv r info graph
                    code @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
         | _ -> failwith "condition not in temp in Expr" 
@@ -316,7 +332,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                                                          @ [Ins2("mov", Ind tr, Reg tempReg)]
                                                          @ movToRetReg reg tempReg) graph
             | r ->
-                let env2, eCode = cExpr e env1 funEnv reg liveVars graph
+                let env2, eCode = cExpr e env1 funEnv r liveVars graph
                 match accCode with //If empty list, accCode register contains values
                 | [] ->
                     let addrCode = getAddrOfVarInReg tr r graph liveVars env2
