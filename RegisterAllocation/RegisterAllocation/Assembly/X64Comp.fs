@@ -177,6 +177,17 @@ let getAddrOfVarInReg tr reg graph liveVars env =
     | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
     | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))]
 
+let restoreCode live graph env tr=
+                    let varName = List.fold (fun acc elem ->
+                        if Map.find elem graph = tr then elem else acc) "" live 
+                    if varName.StartsWith '/' then []
+                    else
+                        let addr =
+                            match lookup (fst env) varName with
+                            | Locvar i, _ -> i
+                            | _ -> failwith "huh"
+                        [Ins2("lea", Reg tr, RbpOff (addr * 8));Ins2("mov",Reg tr, Ind tr)]
+
 (* Compiling micro-C statements *)
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
     match stmt with
@@ -184,11 +195,11 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
         let labelse = newLabel()
         let labend  = newLabel()
         let ifCode =
-                    let code1 = cStmt stmt1 varEnv funEnv graph
-                    let code2 = cStmt stmt2 varEnv funEnv graph
+                    let thenCode = cStmt stmt1 varEnv funEnv graph
+                    let elseCode = cStmt stmt2 varEnv funEnv graph
                     [Jump("jz", labelse)] 
-                    @ code1 @ [Jump("jmp", labend)]
-                    @ [Label labelse] @ code2
+                    @ thenCode @ [Jump("jmp", labend)]
+                    @ [Label labelse] @ elseCode
                     @ [Label labend]
         match e with
         | Temp(n, _) ->
@@ -196,12 +207,12 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             | Spill ->
                 let tempReg = getTemp Dummy info graph //no reg needs to be preserved
                 let env, eCode = cExpr e varEnv funEnv tempReg info graph
-                preserve tempReg info (eCode @ getValOfTemp n tempReg env
-                                       @ [Ins2("cmp", Reg tempReg, Cst 0);Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]) graph
-                @ ifCode
+                eCode @ getValOfTemp n tempReg env
+                @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv))); Ins2("cmp", Reg tempReg, Cst 0)]
+                @ restoreCode info graph env tempReg @ ifCode
             | r ->
                 let env, eCode = cExpr e varEnv funEnv r info graph
-                eCode @ [Ins2("cmp", Reg r, Cst 0);Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
+                eCode @ [Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)));Ins2("cmp", Reg r, Cst 0)]
                 @ ifCode
         | _ -> failwith "condition not in temp in If"
     | DWhile(e, body,info) ->
@@ -217,16 +228,14 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             match Map.find n graph with
             | Spill ->
                 let tempReg = getTemp Dummy info graph
-                let env, code = cExpr e varEnv funEnv tempReg info graph
-                loopCode @
-                preserve tempReg info (code @ getValOfTemp n tempReg env
-                                     @ [Ins2("cmp", Reg tempReg, Cst 0)]) graph
-                                  @ [Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))
-                                     Jump("jnz", labbegin)]
+                let env, eCode = cExpr e varEnv funEnv tempReg info graph
+                loopCode @ eCode @ getValOfTemp n tempReg env
+                @ [Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)));Ins2("cmp", Reg tempReg, Cst 0)]
+                @ restoreCode info graph env tempReg @ [ Jump("jnz", labbegin)]
             | r ->
                  let env, code = cExpr e varEnv funEnv r info graph
                  loopCode @ code @
-                 [Ins2("cmp", Reg r, Cst 0);Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))
+                 [Ins2("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)));Ins2("cmp", Reg r, Cst 0);
                   Jump("jnz", labbegin)]
         | _ -> failwith "condition not in temp in While"
     | DExpr(e,info) -> 
@@ -236,20 +245,10 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             | Spill ->
                 let tempReg = getTemp Dummy info graph
                 let env, code = cExpr e varEnv funEnv tempReg info graph
-                let restoreCode =
-                    let varName = List.fold (fun acc elem ->
-                        if Map.find elem graph = tempReg then elem else acc) "" info
-                    if varName.StartsWith '/' then []
-                    else
-                        let addr =
-                            match lookup (fst env) varName with
-                            | Locvar i, _ -> i
-                            | _ -> failwith "huh"
-                        [Ins2("lea", Reg tempReg, RbpOff (addr * 8));Ins2("mov",Reg tempReg, Ind tempReg)]
                 //Since temps always die after DExpr, the final instr tom ove val into addr of temp is useless
                 List.removeAt ((List.length code)-1) code
                 @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
-                @ restoreCode
+                @ restoreCode info graph env tempReg
             | r -> let env, code = cExpr e varEnv funEnv r info graph
                    code @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
         | _ -> failwith "condition not in temp in Expr" 

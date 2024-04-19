@@ -1,8 +1,11 @@
 ﻿void main(int a)
 {
-    print (a * a);
-    print (a + a);
-    print (a - a);
-    print (a / 2);
-    print (a % 2);
+    if (a > 2)
+    {
+        print (a);
+    }
+    else
+    {
+        print (2);
+    }
 }
