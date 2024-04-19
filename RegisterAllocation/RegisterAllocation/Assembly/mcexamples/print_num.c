@@ -1,7 +1,11 @@
 void main()
 {
-   int a;
-   a = 4;
-   print (a);
-   print (a);
+   int *a;
+   int b;
+   b = 5;
+   a = &b;
+   print (*a);
+   int** c;
+   c = &a;
+   print(**c);
 }
