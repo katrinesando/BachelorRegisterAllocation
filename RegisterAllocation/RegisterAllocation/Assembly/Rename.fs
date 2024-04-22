@@ -75,7 +75,7 @@ and rExpr (e : expr) depth map tempCount =
             | [] -> List.rev acc, tc
             | r::res ->
                 let s, newTempCount1 = rExpr r depth map tc
-                loop res (s:: acc) (newTempCount1+1)
+                loop res (s:: acc) (newTempCount1)
         let exLst, newTempCount2 = loop lst [] tempCount
         Call (name,exLst), newTempCount2
         

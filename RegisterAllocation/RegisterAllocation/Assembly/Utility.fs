@@ -24,13 +24,14 @@ let fromReg reg =
     | R15  -> "r15"
 
 let temporaries =
-    [Rcx; Rdx]// ;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] 
+    [Rcx; Rdx ;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] 
 
 type flabel = string
 type 'data env = (string * 'data) list
 type var = 
     Glovar of int                   (* address relative to bottom of stack *)
-  | Locvar of int  
+  | Locvar of int
+  | ArgVar of int*bool              (* int is address (offset relative to base pointer) and bool is if in register or not*)
 
 type varEnv = (var * typ) env * int
 
@@ -68,7 +69,7 @@ let addToMap depth name m =
  
 (* Bind declared parameters in env: *)       
 let bindParam (env, fdepth) (typ, x)  : varEnv = 
-    ((x, (Locvar fdepth, typ)) :: env , fdepth+1)
+    ((x, (ArgVar (fdepth,false), typ)) :: env , fdepth+1)
 
 let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
     List.fold bindParam (env, fdepth) paras
