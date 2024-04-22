@@ -174,8 +174,21 @@ let getAddrOfVarInReg tr reg graph liveVars env =
     let name = List.fold(fun acc elem ->
             if Map.find elem graph = tr then elem else acc) "" liveVars
     match lookup (fst env) name with
+    | ArgVar (addr, b),_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
     | Locvar addr,_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
     | Glovar addr, _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))]
+
+let updateVarEnv toInsert name varenv =
+    let rec aux rest acc =
+        match rest with
+        | [] -> acc, snd varenv
+        | (n,_ as x)::xs ->
+            if n = name then
+                (name,toInsert) :: acc @ xs, snd varenv
+            else
+                aux xs (x::acc)
+    aux (fst varenv) []
+
 
 (* Compiling micro-C statements *)
 let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
@@ -472,6 +485,15 @@ and cAccess access varEnv funEnv reg liveVars graph =
     match access with 
     | AccVar x ->
       match lookup (fst varEnv) x with
+      | ArgVar (addr, b), t ->
+          match Map.find x graph with
+          | Spill -> [Ins2("lea", Reg reg, RbpOff (8*addr))],varEnv, reg
+          | r ->
+              if b then
+                  [], varEnv, r
+              else
+                  let newVar = ArgVar(addr, true)
+                  [Ins2("lea", Reg r, RbpOff (8*addr))],updateVarEnv (newVar,t) x varEnv, r
       | Glovar addr, TypA _ ->
           match Map.find x graph with
           | Spill ->
@@ -554,18 +576,17 @@ and cAccess access varEnv funEnv reg liveVars graph =
 
 (* Generate code to evaluate a list es of expressions: *)
 
-and cExprs es varEnv funEnv reg liveVars graph = 
+and cExprs es varEnv funEnv reg liveVars graph =
         List.fold(fun (envs, instrs) elem ->
             let env,eCode = cExpr elem envs funEnv reg liveVars graph
-            env, eCode @ [Ins1("push", Reg reg)] @ instrs) (varEnv, []) es
-
+            env ,eCode @ [Ins1("push", Reg reg)] @ instrs) (varEnv ,[]) es
 (* Generate code to evaluate arguments es and then call function f: *)
 
 and callfun f es varEnv funEnv tr liveVars graph =
     let labf, tyOpt, paramdecs = lookup funEnv f
     let argc = List.length es
     if argc = List.length paramdecs then
-        let env, code = cExprs es varEnv funEnv tr liveVars graph
+        let env,code = cExprs es varEnv funEnv tr liveVars graph
         env, preserveCallerSaveRegs liveVars  graph (code @
                               [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)])
     else
