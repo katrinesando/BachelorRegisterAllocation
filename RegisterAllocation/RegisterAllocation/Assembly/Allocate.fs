@@ -27,24 +27,24 @@ let addVarToGraph name (graph : interferenceGraph) liveness =
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
-    |DIf(_, s1, s2, liveness) ->
+    |DIf(_, s1, s2, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
         graphFromDStmt s1 |> graphFromDStmt s2
-    |DWhile(_, body, liveness) ->
+    |DWhile(_, body, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness|>
         graphFromDStmt body
-    |DExpr(_, liveness) ->
+    |DExpr(_, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
-    |DBlock(stmtordecs, liveness) ->
+    |DBlock(stmtordecs, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |> //create graph
         List.fold (fun acc elem -> graphFromDStmtOrDec elem acc) <| stmtordecs
-    |DReturn(_, liveness) ->
+    |DReturn(_, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
     
 and graphFromDStmtOrDec stmtOrDec graph =
     match stmtOrDec with
     | DStmt (dstmt,_) -> graphFromDStmt dstmt graph
-    | DDec(_, name, liveness) ->
+    | DDec(_, name, (liveness, _)) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
 
 let buildGraph (DProg prog) : interferenceGraph =
@@ -53,8 +53,8 @@ let buildGraph (DProg prog) : interferenceGraph =
         | [] -> acc
         | x::xs ->
             match x with
-            | DVardec(_, name, liveness) -> loop xs (addVarToGraph name acc liveness)
-            | DFundec(_, _, _, body, liveness) ->
+            | DVardec(_, name, (liveness, _)) -> loop xs (addVarToGraph name acc liveness)
+            | DFundec(_, _, _, body, (liveness, _)) ->
                 let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
                 loop xs (graphFromDStmt body newlst)  
     loop prog Map.empty
