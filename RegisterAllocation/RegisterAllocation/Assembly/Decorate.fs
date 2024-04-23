@@ -122,18 +122,18 @@ let rec topDownStmt dstmt livelist pointerRefs=
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         let (thenDstmt, lst1, pr1) = topDownStmt dstmt1 lst pr
         let (elseDstmt, lst2, pr2) = topDownStmt dstmt2 lst1 pr1
-        DIf(expr, thenDstmt, elseDstmt, lst2), lst2, pr2
+        DIf(expr, thenDstmt, elseDstmt, (lst2, pr2)), lst2, pr2
     | DWhile(e, dstmt, info) ->
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
         let (body, lst1, pr1) = topDownStmt dstmt lst pr
-        DWhile(expr, body, lst1), lst1, pr1
+        DWhile(expr, body, (lst1, pr1)), lst1, pr1
     | DExpr(e, info) ->
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
-        DExpr(expr, lst), lst, pr
-    | DReturn (None, info)-> DReturn(None, info), info, pointerRefs
+        DExpr(expr, (lst,pr)), lst, pr
+    | DReturn (None, info)-> DReturn(None, (info, pointerRefs)), info, pointerRefs
     | DReturn (Some e, info) ->
         let (expr, lst, pr, _) = topDownExpr e info pointerRefs []
-        DReturn(Some expr, lst), lst, pr
+        DReturn(Some expr, (lst, pr)), lst, pr
     | DBlock(stmtordecs, info) ->
         let rec loop rest (accStmts, accLive, accPr as acc) =
             match rest with
@@ -142,17 +142,19 @@ let rec topDownStmt dstmt livelist pointerRefs=
                 let newstmt, list, pr = topDownDStmtordec x accLive accPr
                 loop xs (newstmt::accStmts, list, pr)
         let (stmtLst, newlist, pr) = loop stmtordecs ([],info, pointerRefs) 
-        DBlock(List.rev stmtLst, newlist),newlist, pr
+        DBlock(List.rev stmtLst, (newlist, pr)),newlist, pr
         
 and topDownDStmtordec dstmtordec livelist pointerRefs =
     match dstmtordec with
     | DDec(typ, name, info) ->
         match typ with
-        | TypP _ -> DDec(typ, name, info), livelist, Map.add name None pointerRefs
-        | _ -> DDec(typ, name, info), livelist, pointerRefs
+        | TypP _ ->
+            let pr =  Map.add name None pointerRefs
+            DDec(typ, name, (info, pr)), livelist, pr
+        | _ -> DDec(typ, name, (info, pointerRefs)), livelist, pointerRefs
     | DStmt(ds, info) ->
         let (dstmt, lst, pr) = topDownStmt ds info pointerRefs
-        DStmt(dstmt, lst), lst, pr
+        DStmt(dstmt, (lst, pr)), lst, pr
 and topDownExpr expr liveList pointerRefs varsAccessed =
     match expr with
     | Access acc ->
@@ -202,16 +204,7 @@ and topDownExpr expr liveList pointerRefs varsAccessed =
 and topDownAccess acc liveList pointerRefs varsAccessed=
     match acc with
     |AccVar name ->
-        match Map.tryFind name pointerRefs with
-        | None ->
-            AccVar name, liveList, pointerRefs, name :: varsAccessed
-        | Some ref ->
-            match ref with
-            | None ->
-                AccVar name, liveList, pointerRefs, name :: varsAccessed
-            | Some vars ->
-                let newlst = List.fold(fun acc elem -> if mem elem acc then acc else elem::acc) liveList vars
-                AccVar name, newlst, pointerRefs, name :: varsAccessed
+        AccVar name, liveList, pointerRefs, name :: varsAccessed
     |AccDeref e->
         let(expr, lst, pr, va) = topDownExpr e liveList pointerRefs varsAccessed
         AccDeref expr ,lst, pr, va
@@ -228,13 +221,14 @@ let topDownAnalysis (DProg prog) =
             | DVardec(t, name, info) ->
                 match t with
                 | TypP _ ->
-                    aux xs (DVardec(t,name,info) :: dtree,info,Map.add name None pointerRefs) 
+                    let pr = Map.add name None pointerRefs
+                    aux xs (DVardec(t,name,(info, pr)) :: dtree,info,pr) 
                 | _ ->
-                    aux xs (DVardec(t,name,info) :: dtree,info,pointerRefs) 
+                    aux xs (DVardec(t,name,(info, pointerRefs)) :: dtree,info,pointerRefs) 
             | DFundec(rtyp, name, args, body, info) ->
                 let (decoratedBody,stmtList, pr) = topDownStmt body livelist pointerRefs //Cannot assign to variable from function
-                aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,info, pr) 
+                aux xs (DFundec(rtyp,name,List.rev args, decoratedBody, (stmtList, pr))::dtree,info, pointerRefs) // pointerRefs - local pointers don't effect other local pointers - hence not updated
     DProg(aux (prog) ([],[], Map.empty))   
 
 
-let livenessAnotator prog = bottomUpAnalysis prog //|> topDownAnalysis
+let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis
