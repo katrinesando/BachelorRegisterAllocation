@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ClCompile Include="Assembly\mcexamples\simpleArr.c" />
         <Content Include="Assembly\nasm\README.TXT" />
         <Content Include="Assembly\nasm\linsimple.asm" />
         <Content Include="Assembly\nasm\macbetter.asm" />
@@ -70,6 +71,7 @@
         <ClCompile Include="Assembly\mcexamples\ex_graph.c" />
         <ClCompile Include="Assembly\mcexamples\ex_call.c" />
         <ClCompile Include="Assembly\mcexamples\ex_ope.c" />
+        <ClCompile Include="Assembly\mcexamples\isoTest.c" />
         <ClCompile Include="Assembly\mcexamples\ex_glovars.c" />
         <ClCompile Include="Assembly\test.c" />
     </ItemGroup>

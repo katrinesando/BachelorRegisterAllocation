@@ -125,9 +125,10 @@ let rec topDownStmt dstmt glovars =
         let elseDstmt,_ = topDownStmt dstmt2 glovars
         DIf(expr, thenDstmt, elseDstmt, newLiveness), newLiveness
     | DWhile(e, dstmt, info) ->
+        let newLiveness = List.except glovars info
         let expr = topDownExpr e
         let body, lst1 = topDownStmt dstmt glovars
-        DWhile(expr, body, lst1), lst1
+        DWhile(expr, body, newLiveness), newLiveness
     | DExpr(e, info) ->
         let newLiveness = List.except glovars info
         let expr = topDownExpr e
@@ -220,4 +221,4 @@ let topDownAnalysis (DProg prog) =
     DProg(aux (prog) ([],Set.empty))   
 
 
-let livenessAnotator prog = bottomUpAnalysis prog //|> topDownAnalysis
+let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis
