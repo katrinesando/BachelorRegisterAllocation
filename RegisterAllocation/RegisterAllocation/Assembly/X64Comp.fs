@@ -134,7 +134,8 @@ let prim2Code ope liveVars graph tr tr' =
                | "/"   -> [Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx liveVars [Ins("cdq"); Ins1("idiv", Reg tr')] graph
                           @ [Ins2("mov", Reg tr, Reg Rax)]
-               | "%"   -> [Ins2("mov", Reg Rax, Reg tr)] @
+               | "%"   ->
+                          [Ins2("mov", Reg Rax, Reg tr)] @
                           if tr <> Rdx then
                               [Ins("cdq"); Ins1("idiv", Reg tr'); Ins2("mov", Reg tr, Reg Rdx)] |>
                               preserve Rdx liveVars <| graph
@@ -425,71 +426,16 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         | _ -> failwith "wrong abstract syntax in Prim2"
     | Andalso(e1, e2) ->
         let labend = newLabel()
-        match e1,e2 with
-        | Temp(n1, _),Temp(n2, _) ->
-            match Map.find n1 graph, Map.find n2 graph with
-            | Spill, Spill ->
-                let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
-                let code1 = getValOfTemp n1 reg env2
-                let code2 = getValOfTemp n2 reg env2
-                let retCode = e1Code @ code1 @ [Ins2("cmp", Reg reg, Cst 0);Jump("jz", labend)]
-                                                   @ e2Code @ code2 @ [Label labend]               
-                env2, retCode
-            | r, Spill ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r liveVars graph
-                let code1 = getValOfTemp n2 r env2
-                let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
-                                     @ e2Code @ [Label labend] @ movToRetReg reg r           
-                env2, retCode
-            | Spill, r ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r liveVars graph
-                let code2 = getValOfTemp n1 r env2
-                let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jz", labend)]
-                                     @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r 
-                env2, retCode
-            | r1,r2 ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r1 liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r2 liveVars graph
-                env2, e1Code @ [Ins2("cmp", Reg r1, Cst 0)]@ movToRetReg reg r1 @[Jump("jz", labend)]
-                     @ e2Code @ movToRetReg reg r2 @ [Label labend] 
-        | _ -> failwith "wrong abstract syntax in Andalso"        
+        let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+        let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
+        env2, e1Code @ [Ins2("cmp", Reg reg, Cst 0);Jump("jz", labend)]
+                                           @ e2Code @ [Label labend]        
     | Orelse(e1,e2) ->
         let labend = newLabel()
-        //no need for preserve since reg is already preserved
-        match e1,e2 with
-        | Temp(n1, _),Temp(n2, _) ->
-            match Map.find n1 graph, Map.find n2 graph with
-            | Spill, Spill ->
-                let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
-                let code1 = getValOfTemp n1 reg env2
-                let code2 = getValOfTemp n2 reg env2
-                let retCode = e1Code @ code1 @ [Ins2("cmp", Reg reg, Cst 0);Jump("jnz", labend)]
-                                                   @ e2Code @ code2 @ [Label labend]               
-                env2, retCode
-            | r, Spill ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r liveVars graph
-                let code2 = getValOfTemp n2 r env2
-                let retCode = e1Code @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
-                                     @ e2Code @ code2 @ [Label labend] @ movToRetReg reg r
-                env2, retCode
-            | Spill, r ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r liveVars graph
-                let code1 = getValOfTemp n1 r env2
-                let retCode = e1Code @ code1 @ [Ins2("cmp", Reg r, Cst 0);Jump("jnz", labend)]
-                                 @ e2Code @ [Label labend] @ movToRetReg reg r   
-                env2, retCode
-            | r1,r2 ->
-                let env1, e1Code = cExpr e1 varEnv funEnv r1 liveVars graph
-                let env2, e2Code = cExpr e2 env1 funEnv r2 liveVars graph
-                env2, e1Code @ [Ins2("cmp", Reg r1, Cst 0)] @ movToRetReg reg r1 @[Jump("jnz", labend)]
-                       @ e2Code @ movToRetReg reg r2 @ [Label labend]
-        | _ -> failwith "wrong abstract syntax in Orelse"        
+        let env1, e1Code = cExpr e1 varEnv funEnv reg liveVars graph
+        let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
+        env2, e1Code @ [Ins2("cmp", Reg reg, Cst 0);Jump("jnz", labend)]
+                                           @ e2Code @ [Label labend]                       
     | Call(f, es) ->
         let env, code = callfun f es varEnv funEnv reg liveVars graph
         env, code

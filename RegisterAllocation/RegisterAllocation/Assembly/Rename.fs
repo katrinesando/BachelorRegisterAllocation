@@ -64,11 +64,11 @@ and rExpr (e : expr) depth map tempCount =
     | Andalso(e1,e2)   ->
         let ex1, newTempCount1 = rExpr e1 depth map tempCount
         let ex2, newTempCount2 = rExpr e2 depth map newTempCount1
-        Andalso(Temp ("/"+ string newTempCount2,ex1), Temp ("/"+ string (newTempCount2+1),ex2)), newTempCount2+2
+        Andalso(ex1,ex2), newTempCount2
     | Orelse(e1, e2) ->
         let ex1, newTempCount1 = rExpr e1 depth map tempCount
         let ex2, newTempCount2 = rExpr e2 depth map newTempCount1
-        Orelse(Temp ("/"+ string newTempCount2,ex1), Temp ("/"+ string (newTempCount2+1),ex2)), newTempCount2+2
+        Orelse(ex1,ex2), newTempCount2
     | Call(name, lst) ->
         let rec loop rest acc tc=
             match rest with

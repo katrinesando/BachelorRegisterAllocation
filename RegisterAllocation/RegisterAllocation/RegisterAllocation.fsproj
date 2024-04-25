@@ -7,6 +7,7 @@
 
     <ItemGroup>
         <ClCompile Include="Assembly\mcexamples\simpleArr.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_chainLogic.c" />
         <Content Include="Assembly\nasm\README.TXT" />
         <Content Include="Assembly\nasm\linsimple.asm" />
         <Content Include="Assembly\nasm\macbetter.asm" />
@@ -31,7 +32,6 @@
         <Compile Include="Assembly\Decorate.fs" />
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\X64.fs" />
-        <Content Include="Assembly\try1" />
         <Compile Include="Assembly\X64Comp.fs" />
         <Compile Include="Assembly\MicroCCAsm.fs" />
         <Compile Include="Assembly\ParseAndComp.fs" />
