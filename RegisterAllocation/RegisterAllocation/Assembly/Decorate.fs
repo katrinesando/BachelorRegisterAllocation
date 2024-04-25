@@ -32,7 +32,7 @@ let rec aStmt stmt lst =
     | Return None -> DReturn(None, lst), lst
     | Return (Some e) ->
         let ex, newlist = aExpr e lst
-        DReturn(Some ex, lst), newlist
+        DReturn(Some ex, newlist), newlist
   
 and aStmtOrDec stmtOrDec lst  =
     let tempsRemoved = removeTemps lst
@@ -133,8 +133,9 @@ let rec topDownStmt dstmt glovars =
         let newLiveness = List.except glovars info
         let expr = topDownExpr e
         DExpr(expr, newLiveness), newLiveness
-    | DReturn (None, _) ->
-        DReturn(None, []), []
+    | DReturn (None, info) ->
+        let newLiveness = List.except glovars info
+        DReturn(None, newLiveness), []
     | DReturn (Some e, info) ->
         let newLiveness = List.except glovars info
         let expr = topDownExpr e
@@ -209,7 +210,7 @@ and topDownAccess acc =
 let topDownAnalysis (DProg prog) =
     let rec aux res (dtree,glovars as acc) =
         match res with
-        | [] -> dtree
+        | [] -> List.rev dtree
         | x::xs ->
             match x with
             | DVardec(t, name, info) ->
@@ -218,7 +219,7 @@ let topDownAnalysis (DProg prog) =
             | DFundec(rtyp, name, args, body, info) ->
                 let decoratedBody,stmtList = topDownStmt body glovars //Cannot assign to variable from function
                 aux xs (DFundec(rtyp,name,List.rev args, decoratedBody, stmtList)::dtree,glovars) // pointerRefs - local pointers don't effect other local pointers - hence not updated
-    DProg(aux (prog) ([],Set.empty))   
+    DProg(aux (prog) ([],Set.empty)) 
 
 
 let livenessAnotator prog = bottomUpAnalysis prog |> topDownAnalysis

@@ -36,8 +36,11 @@ void main(int n) {
   i = u = 1;
   while (i > 0) {
     while (i <= n && i != 0) {
+    	
       while (u <= n && (used[u] || diag1[u-i+n] || diag2[u+i]))
-	u = u + 1;
+      {
+      	u = u + 1;
+      }
       if (u <= n) { // not used[u]; fill col[i] then try col[i+1]
 	col[i] = u; 
 	diag1[u-i+n] = diag2[u+i] = used[u] = true; 
