@@ -90,11 +90,19 @@ let getTemp pres liveVars graph =
 
 
 (* ------------------------------------------------------------------- *)
-let preserveCallerSaveRegs live graph code =
-    let inUse = List.fold (fun inUse elem ->
-        let reg = Map.find elem graph
-        if Spill <> reg then reg::inUse else inUse) [] live
-    List.fold(fun acc elem -> pushAndPop elem acc ) code inUse
+let preserveCallerSaveRegs live graph env code =
+    let resCode = List.fold (fun acc elem ->
+                match Map.find elem graph with
+                | Spill -> acc
+                | tr -> 
+                    if (string elem).StartsWith "/" then acc
+                    else
+                        let addr =
+                            match lookup (fst env) elem with
+                            | Locvar (i,_), _ -> i
+                            | _ -> failwith "huh"
+                        Ins2("lea", Reg tr, RbpOff (addr * 8)):: Ins2("mov",Reg tr, Ind tr)::acc) [] live
+    code @ resCode
 
 (* Global environments for variables and functions *)
 let makeGlobalEnvs topdecs : varEnv * funEnv * x86 list = 
@@ -115,33 +123,36 @@ let makeGlobalEnvs topdecs : varEnv * funEnv * x86 list =
 let movToRetReg retReg curReg =
     if curReg <> retReg then [Ins2 ("mov", Reg retReg, Reg curReg)] else []
 
-let prim1Code ope tr liveVars graph =
+let prim1Code ope tr liveVars graph env code=
     match ope with
-           | "!"      -> [Ins("xor rax, rax");
+           | "!"      -> code @ [Ins("xor rax, rax");
                           Ins2("cmp", Reg tr, Reg Rax);
                           Ins("sete al");
                           Ins2("mov", Reg tr, Reg Rax)]
-           | "printi" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTI]
-           | "printc" -> preserveCallerSaveRegs liveVars graph [Ins2("mov",Reg Rdi, Reg tr);PRINTC]
+           | "printi" -> preserveCallerSaveRegs liveVars graph env (code @ [Ins2("mov",Reg Rdi, Reg tr);PRINTI])
+           | "printc" -> preserveCallerSaveRegs liveVars graph env (code @ [Ins2("mov",Reg Rdi, Reg tr);PRINTC])
            | _        -> raise (Failure "unknown primitive 1")
 let prim2Code ope liveVars graph tr tr' =
     match ope with
                | "+"   -> [Ins2("add", Reg tr, Reg tr')]
                | "-"   -> [Ins2("sub", Reg tr, Reg tr')]
-               | "*"   -> [Ins2("mov", Reg Rax, Reg tr)]
-                          @ preserve Rdx liveVars [Ins1("imul", Reg tr')] graph
-                          @ [Ins2("mov", Reg tr, Reg Rax)]
-               | "/"   -> [Ins2("mov", Reg Rax, Reg tr)]
-                          @ preserve Rdx liveVars [Ins("cdq"); Ins1("idiv", Reg tr')] graph
+               | "*"   -> [Ins2("mov", Reg Rax, Reg tr)
+                           Ins1("imul", Reg tr');Ins2("mov", Reg tr, Reg Rax)]
+               | "/"   -> [Ins2("mov", Reg Rax, Reg tr)] @
+                          if tr' <> Rdx then
+                              preserve Rdx liveVars [Ins("cqo"); Ins1("idiv", Reg tr')] graph
+                          else
+                              [Ins2("mov",Reg tr, Reg tr');Ins("cqo"); Ins1("idiv", Reg tr)]
                           @ [Ins2("mov", Reg tr, Reg Rax)]
                | "%"   ->
                           [Ins2("mov", Reg Rax, Reg tr)] @
-                          if tr <> Rdx then
-                              [Ins("cdq"); Ins1("idiv", Reg tr'); Ins2("mov", Reg tr, Reg Rdx)] |>
+                          if tr' <> Rdx && tr <> Rdx then
+                              [Ins("cqo"); Ins1("idiv", Reg tr'); Ins2("mov", Reg tr, Reg Rdx)] |>
                               preserve Rdx liveVars <| graph
+                          
                           else
-                              ([Ins("cdq"); Ins1("idiv", Reg tr'); Ins2("mov", Reg Rax, Reg Rdx)] |>
-                              preserve Rdx liveVars <| graph) @ [Ins2("mov", Reg tr, Reg Rax)]
+                              [Ins2("mov",Reg tr, Reg tr');Ins("cqo"); Ins1("idiv", Reg tr); 
+                               Ins2("mov", Reg tr, Reg Rdx)]
                | "==" | "!=" | "<" | ">=" | ">" | "<="
                   -> let setcompbits = (match ope with
                                         | "==" -> "sete al"
@@ -178,7 +189,7 @@ let getAddrOfVarInReg tr reg graph liveVars env =
     | Locvar (addr,_),_ -> [Ins2("lea", Reg reg, RbpOff (8*addr))]
     | Glovar (addr,_), _ -> [Ins2("mov", Reg reg, Glovars);Ins2("sub", Reg reg, Cst (8*addr))]
 
-let restoreCode live graph env tr=
+let restoreCode live graph env tr =
                     let varName = List.fold (fun acc elem ->
                         if Map.find elem graph = tr then elem else acc) "" live 
                     if varName.StartsWith '/' then []
@@ -294,10 +305,19 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
                  Ins("pop rbp");
                  Ins("ret")]
     | DReturn(Some e,info) ->  //Returns need to be in specific register every time
-        let env, code = cExpr e varEnv funEnv Rbx info graph //Return is end of function thus nothing is live in RBX
-        code @ [Ins2("add", Reg Rsp, Cst (8 * snd env)); 
-                   Ins("pop rbp");
-                   Ins("ret")]
+         //Return is end of function thus nothing is live in RBX
+        match e with
+        |Temp(n, _) ->
+            match Map.find n graph with
+            | Spill ->
+                let tempReg = getTemp Dummy info graph
+                let env, code = cExpr e varEnv funEnv tempReg info graph
+                code @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env)))]
+                @ movToRetReg Rbx tempReg @ [Ins("pop rbp");Ins("ret")]
+            | r ->
+                let env, code = cExpr e varEnv funEnv r info graph
+                code @ [Ins2("add", Reg Rsp, Cst (8 * snd env))] 
+                @ movToRetReg Rbx r @ [Ins("pop rbp");Ins("ret")]
 
 
 and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x86 list = 
@@ -381,9 +401,9 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         | Temp(n,_)->
             match Map.find n graph with
             | Spill ->
-                 env1, eCode @ prim1Code ope reg liveVars graph
+                 env1, prim1Code ope reg liveVars graph env1 (eCode@ getValOfTemp n reg env1)
             | r ->
-                env1, eCode @ prim1Code ope r liveVars graph
+                env1, prim1Code ope r liveVars graph env1 eCode
                         @ movToRetReg reg r
         | _ -> failwith "wrong abstract syntax in Prim1"
     | Prim2(ope, e1, e2) ->
@@ -404,7 +424,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             | Spill,r->
                 if reg <> r then
                     let env, eCodes = exprCodes reg r
-                    env, eCodes @ prim2Code ope liveVars graph reg r
+                    env, eCodes @ getValOfTemp n1 reg env @ prim2Code ope liveVars graph reg r
                 else
                     let tempReg = getTemp reg liveVars graph
                     let env, eCodes = exprCodes reg reg
@@ -412,13 +432,14 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                                            @ prim2Code ope liveVars graph tempReg reg @ movToRetReg reg tempReg) graph
                                             
             | r, Spill->
+                let env1, e1Code = cExpr e1 varEnv funEnv r liveVars graph
+                let env2, e2Code = cExpr e2 env1 funEnv reg liveVars graph
                 if reg <> r then
-                    let env, eCodes = exprCodes r reg
-                    env, eCodes @ prim2Code ope liveVars graph r reg @ movToRetReg reg r
+                    env2, e2Code @ e1Code @ getValOfTemp n2 reg env2 @
+                            prim2Code ope liveVars graph r reg @ movToRetReg reg r
                 else
                     let tempReg = getTemp r liveVars graph
-                    let env, eCodes = exprCodes r r
-                    env, eCodes @ preserve tempReg liveVars (getValOfTemp n2 tempReg env
+                    env2, e2Code @ e1Code @ preserve tempReg liveVars (getValOfTemp n2 tempReg env2
                                            @ prim2Code ope liveVars graph r tempReg) graph
             | r1,r2 ->
                 let env, eCodes = exprCodes r1 r2
@@ -444,8 +465,15 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         | Spill ->
             let newEnv,code = allocate Locvar (TypI, n) varEnv
             let env1, eCode = cExpr e newEnv funEnv reg liveVars graph
-            env1, code @ eCode @ putValInAddrOfTemp n reg env1
-        | r -> cExpr e varEnv funEnv r liveVars graph
+            match e with
+            | Call _ -> env1, preserveCallerSaveRegs liveVars graph env1 (code @ eCode @ putValInAddrOfTemp n reg env1)
+            | _ -> env1, code @ eCode @ putValInAddrOfTemp n reg env1
+        | r ->
+            let env1,code = cExpr e varEnv funEnv r liveVars graph
+            match e with
+            | Call _ -> env1, preserveCallerSaveRegs liveVars graph env1 code
+            | _ -> env1, code
+                
             
         
         
@@ -466,9 +494,10 @@ and cAccess access varEnv funEnv reg liveVars graph =
           | Spill ->
               [Ins2("lea", Reg reg, RbpOff (8*addr))],varEnv, reg
           | r ->
-              let newVar = Locvar(addr,true)
               if b then [],varEnv, r
-              else [Ins2("lea", Reg r, RbpOff (8*addr))],updateVarEnv (newVar,t) x varEnv, r
+              else
+                  let newVar = Locvar(addr,true)
+                  [Ins2("lea", Reg r, RbpOff (8*addr))],updateVarEnv (newVar,t) x varEnv, r
     | AccDeref e ->
         match e with
         |Temp(n,expr) ->
@@ -543,8 +572,7 @@ and callfun f es varEnv funEnv tr liveVars graph =
     let argc = List.length es
     if argc = List.length paramdecs then
         let env,code = cExprs es varEnv funEnv tr liveVars graph
-        env, preserveCallerSaveRegs liveVars  graph (code @
-                              [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)])
+        env, code @ [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)]
     else
         raise (Failure (f + ": parameter/argument mismatch"))
 
