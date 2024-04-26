@@ -192,7 +192,7 @@ let getAddrOfVarInReg tr reg graph liveVars env =
 let restoreCode live graph env tr =
                     let varName = List.fold (fun acc elem ->
                         if Map.find elem graph = tr then elem else acc) "" live 
-                    if varName.StartsWith '/' then []
+                    if varName.StartsWith '/' || varName = "" then []
                     else
                         let addr =
                             match lookup (fst env) varName with
@@ -458,8 +458,8 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
         env2, e1Code @ [Ins2("cmp", Reg reg, Cst 0);Jump("jnz", labend)]
                                            @ e2Code @ [Label labend]                       
     | Call(f, es) ->
-        let env, code = callfun f es varEnv funEnv reg liveVars graph
-        env, code
+        let code = callfun f es varEnv funEnv reg liveVars graph
+        varEnv, code
     | Temp(n, e) ->
         match Map.find n graph with
         | Spill ->
@@ -562,17 +562,18 @@ and cAccess access varEnv funEnv reg liveVars graph =
 (* Generate code to evaluate a list es of expressions: *)
 
 and cExprs es varEnv funEnv reg liveVars graph =
-        List.fold(fun (envs, instrs) elem ->
-            let env,eCode = cExpr elem envs funEnv reg liveVars graph
-            env ,eCode @ [Ins1("push", Reg reg)] @ instrs) (varEnv ,[]) es
+        List.fold(fun instrs elem ->
+            let env,eCode = cExpr elem varEnv funEnv reg liveVars graph
+            eCode @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)));Ins1("push", Reg reg)]
+                    @ instrs) [] es
 (* Generate code to evaluate arguments es and then call function f: *)
 
 and callfun f es varEnv funEnv tr liveVars graph =
     let labf, tyOpt, paramdecs = lookup funEnv f
     let argc = List.length es
     if argc = List.length paramdecs then
-        let env,code = cExprs es varEnv funEnv tr liveVars graph
-        env, code @ [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)]
+        let code = cExprs es varEnv funEnv tr liveVars graph
+        code @ [Ins("push rbp");Jump("call", labf);Ins2("mov", Reg tr, Reg Rbx)]
     else
         raise (Failure (f + ": parameter/argument mismatch"))
 
