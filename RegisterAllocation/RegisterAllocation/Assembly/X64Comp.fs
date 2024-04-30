@@ -616,7 +616,7 @@ and cAccess access varEnv funEnv reg liveVars graph =
 and cExprs es varEnv funEnv reg liveVars graph =
         List.fold(fun instrs elem ->
             let env,eCode = cExpr elem varEnv funEnv reg liveVars graph
-            eCode @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)));Ins1("push", Reg reg)]
+            eCode @ [Ins1("push", Reg reg)]
                     @ instrs) [] es
 (* Generate code to evaluate arguments es and then call function f: *)
 
