@@ -82,15 +82,7 @@ let simplify (graph : interferenceGraph) =
                 if degree < k then
                     aux newGraph ((minname,Dummy,adjList)::stack) newMins
                 else
-                    aux newGraph ((minname,Spill,adjList)::stack) newMins
-                    //match Map.tryFind maxname g with
-                    //| None -> stack
-                    //| Some (_, cl, adjList) ->
-                    //    let newGraph = decrementDegree g adjList |> Map.remove maxname
-                    //    let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
-                    //    aux newGraph ((maxname,Spill,adjList)::stack) newMins
-                            
-            
+                    aux newGraph ((minname,Spill,adjList)::stack) newMins           
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
 let rebuildAndColour stack =
