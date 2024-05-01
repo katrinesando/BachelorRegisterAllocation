@@ -15,9 +15,9 @@ type dstmt<'info> =
   | DWhile of expr * dstmt<'info> * 'info                (* While loop                  *)
   | DExpr of expr * 'info                        (* Expression statement   e;   *)
   | DReturn of expr option * 'info               (* Return from method          *)
-  | DBlock of stmtordec<'info> list * 'info            (* Block: grouping and scope   *)
+  | DBlock of dstmtordec<'info> list * 'info            (* Block: grouping and scope   *)
                                                                    
-and stmtordec<'info> =                                                    
+and dstmtordec<'info> =                                                    
   | DDec of typ * string * 'info           (* Local variable declaration  *)
   | DStmt of dstmt<'info> * 'info                       (* A statement                 *)
 
