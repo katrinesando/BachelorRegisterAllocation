@@ -222,7 +222,7 @@ let deprecateRegisters liveVars varEnv graph =
                     | Locvar(addr, _) -> (n,(Locvar(addr,false),t))
                     | _ -> failwith "huh"
                 else
-                    newElem) ("",(Locvar(-1,false),TypI)) liveVars
+                    newElem) x liveVars
             loop xs (updated::acc)
     loop (fst varEnv) []            
 
@@ -337,8 +337,8 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
                 let env2,eCode = cExpr e env funEnv tempReg info graph
                 //Since temps always die after DExpr, the final instr tom ove val into addr of temp is useless
                 allocCode @ (List.removeAt ((List.length eCode)-1) eCode)
-                @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env - snd varEnv)))]
-                @ restoreCode info graph env tempReg
+                @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env2 - snd varEnv)))]
+                @ restoreCode info graph env2 tempReg
             | r -> let env2, eCode = cExpr e env funEnv r info graph
                    allocCode @ eCode @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env2 - snd varEnv)))]
         | _ -> failwith "condition not in temp in Expr" 
