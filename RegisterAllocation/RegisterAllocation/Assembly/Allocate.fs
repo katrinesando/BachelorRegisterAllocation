@@ -83,7 +83,6 @@ let simplify (graph : interferenceGraph) =
                     aux newGraph ((minname,Dummy,adjList)::stack) newMins
                 else
                     aux newGraph ((minname,Spill,adjList)::stack) newMins                   
-            
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
 let rebuildAndColour stack =
