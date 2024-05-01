@@ -82,7 +82,7 @@ let simplify (graph : interferenceGraph) =
                 if degree < k then
                     aux newGraph ((minname,Dummy,adjList)::stack) newMins
                 else
-                    aux newGraph ((minname,Spill,adjList)::stack) newMins           
+                    aux newGraph ((minname,Spill,adjList)::stack) newMins                   
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
 let rebuildAndColour stack =
@@ -96,7 +96,7 @@ let rebuildAndColour stack =
                 Map.add name reg graph |>
                 aux ns
         | (name, Spill, lst) :: ns ->
-            Map.add name Spill graph |> //If everything is over k, everything is Spilled - look into fix for future
+            Map.add name Spill graph |>
             aux ns
         | _ -> failwith "something went wrong"
     aux stack Map.empty 
