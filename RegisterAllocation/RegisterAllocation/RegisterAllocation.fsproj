@@ -72,13 +72,14 @@
         <ClCompile Include="Assembly\mcexamples\ex_call.c" />
         <ClCompile Include="Assembly\mcexamples\ex_ope.c" />
         <ClCompile Include="Assembly\mcexamples\isoTest.c" />
+        <ClCompile Include="Assembly\mcexamples\johanTest.c" />
         <ClCompile Include="Assembly\mcexamples\ex_glovars.c" />
         <ClCompile Include="Assembly\mcexamples\test.c" />
         <ClCompile Include="Assembly\mcexamples\test0.c" />
         <ClCompile Include="Assembly\mcexamples\test1.c" />
-        <ClCompile Include="Assembly\mcexamples\test2.c" />
+        <ClCompile Include="Assembly\mcexamples\malteTest.c" />
         <ClCompile Include="Assembly\mcexamples\test3.c" />
-        <ClCompile Include="Assembly\mcexamples\test4.c" />
+        <ClCompile Include="Assembly\mcexamples\jakobTest.c" />
     </ItemGroup>
 
 </Project>

@@ -3,45 +3,25 @@ void main()
 {
     int profetien;
     profetien = oedelaeggelse();
+    print profetien;
 }
 
-int mord;
-int frygt;
-int gnislen;
-int arson;
-int straf;
-int torne;
-int pisk;
-int rotationals;
-int doedsfascisme;
-int stalin;
-int megadoed;
-int ragnarok;
-int kollaps;
-int henrettelse;
-int ofring;
-int pinsel;
-int tortur;
-int krig;
-int supernova;
-int afstraffelse;
-int ulighed;
 
 int ondskab()
 {
     int n;
     n = 5;
 
-    char t;
-    t = 't';
+    int t;
+    t = 84 ;
 
-    char g;
-    char r;
-    char u;
-    char p;
-    char a;
-    char b;
-    char o;
+    int g;
+    int r;
+    int u;
+    int p;
+    int a;
+    int b;
+    int o;
 
     g = t+n;
 
@@ -50,6 +30,27 @@ int ondskab()
 
 int oedelaeggelse()
 {
+    int mord;
+    int frygt;
+    int gnislen;
+    int arson;
+    int straf;
+    int torne;
+    int pisk;
+    int rotationals;
+    int doedsfascisme;
+    int stalin;
+    int megadoed;
+    int ragnarok;
+    int kollaps;
+    int henrettelse;
+    int ofring;
+    int pinsel;
+    int tortur;
+    int krig;
+    int supernova;
+    int afstraffelse;
+    int ulighed;
     int doed;
     doed = 1000;
     
@@ -103,5 +104,4 @@ int oedelaeggelse()
         doed = doed -1;
     }
     return 0;    
-    
 }
