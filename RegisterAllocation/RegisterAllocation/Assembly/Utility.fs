@@ -1,6 +1,9 @@
 ﻿module Utility
 open Absyn
 
+let mem x xs = List.exists (fun y -> x=y) xs
+type reg64 =
+    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
 let fromReg reg =
     match reg with
     | Rax  -> "rax"
@@ -20,11 +23,14 @@ let fromReg reg =
     | R14  -> "r14"
     | R15  -> "r15"
 
+let temporaries =
+    [Rcx;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] //Rdx
+
 type flabel = string
 type 'data env = (string * 'data) list
 type var = 
-    Glovar of int                   (* address relative to bottom of stack *)
-  | Locvar of int  
+    Glovar of int*bool                  (* address relative to bottom of stack *)
+  | Locvar of int*bool
 
 type varEnv = (var * typ) env * int
 
@@ -62,7 +68,15 @@ let addToMap depth name m =
  
 (* Bind declared parameters in env: *)       
 let bindParam (env, fdepth) (typ, x)  : varEnv = 
-    ((x, (Locvar fdepth, typ)) :: env , fdepth+1)
+    ((x, (Locvar (fdepth,false), typ)) :: env , fdepth+1)
 
 let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
     List.fold bindParam (env, fdepth) paras
+    
+let getUnusedRegister graph lst =
+    let toExclude = List.fold (fun acc node ->
+                       match Map.tryFind node graph with
+                       | None -> acc
+                       | Some col -> col :: acc) [] lst 
+    let l = List.except toExclude temporaries
+    if List.length l <> 0 then Some (List.head l) else None

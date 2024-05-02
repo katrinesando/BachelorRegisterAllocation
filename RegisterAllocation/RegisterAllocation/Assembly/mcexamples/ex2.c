@@ -14,7 +14,8 @@ void main() {
   ia2 = ia;                             // now ia2 points to ia[0]
   print *ia2;                           // ~1
   *p = 227;                             // now i is 227
-  print p; print i;                     // 1 227
+  //print p; print i;                     // 1 227
+  /*
   *&i = 12;                             // now i is 12
   print i;                              // 12
   p = &*p;                              // no change
@@ -26,7 +27,9 @@ void main() {
   print ia[9];                          // 114
   ipa[2] = p;                           // now ipa[2] points to i
   print ipa[2];                         // 2
+  
   print (&*ipa[2] == &**(ipa+2));       // 1 (true)
   iap = &ia;                            // now iap points to ia
   print (&(*iap)[2] == &*((*iap)+2));   // 1 (true)
+  */
 }

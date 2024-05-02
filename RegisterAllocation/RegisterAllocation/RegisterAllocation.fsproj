@@ -6,6 +6,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ClCompile Include="Assembly\mcexamples\simpleArr.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_chainLogic.c" />
         <Content Include="Assembly\nasm\README.TXT" />
         <Content Include="Assembly\nasm\linsimple.asm" />
         <Content Include="Assembly\nasm\macbetter.asm" />
@@ -30,10 +32,7 @@
         <Compile Include="Assembly\Decorate.fs" />
         <Compile Include="Assembly\Parse.fs" />
         <Compile Include="Assembly\X64.fs" />
-        <Content Include="Assembly\try1" />
-        <Compile Include="Assembly\X86.fs" />
         <Compile Include="Assembly\X64Comp.fs" />
-        <Compile Include="Assembly\X86Comp.fs" />
         <Compile Include="Assembly\MicroCCAsm.fs" />
         <Compile Include="Assembly\ParseAndComp.fs" />
         <ClCompile Include="Assembly\mcexamples\ex11count.c" />
@@ -70,6 +69,11 @@
         <Content Include="Assembly\mcexamples\ex11.o" />
         <ClCompile Include="Assembly\mcexamples\name.c" />
         <ClCompile Include="Assembly\mcexamples\ex_graph.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_call.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_ope.c" />
+        <ClCompile Include="Assembly\mcexamples\isoTest.c" />
+        <ClCompile Include="Assembly\mcexamples\ex_glovars.c" />
+        <ClCompile Include="Assembly\mcexamples\test.c" />
         <ClCompile Include="Assembly\mcexamples\test0.c" />
         <ClCompile Include="Assembly\mcexamples\test1.c" />
         <ClCompile Include="Assembly\mcexamples\test2.c" />

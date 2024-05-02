@@ -4,30 +4,26 @@ open System
 open Utility
 open DecorAbsyn
 
-type reg64 =
-    | Rax | Rcx | Rdx | Rbx | Rsi | Rdi | Rsp | Rbp | R8 | R9 | R10 | R11 | R12 | R13 | R14| R15 | Spill | Dummy
-
-(* The 13 registers that can be used for temporary values in i386.
+(* The 13 registers that can be used for temporary values in x86-64.
 Allowing RDX requires special handling across IMUL and IDIV *)
-let temporaries =
-    [Rcx; Rdx]//; Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
 
-let mem x xs = List.exists (fun y -> x=y) xs
+
 
 type node = string //varname
-type interferenceGraph = Map<node,int * reg64 * node list> //name, degree * colour * node list
+type interferenceGraph = Map<node,int * node list> //name, degree * colour * node list
 
-let rec addVarToGraph name (graph : Map<string,int * reg64 * node list>) liveness=
+let addVarToGraph name (graph : interferenceGraph) liveness =
     if Map.containsKey name graph then
         graph
     else
         let newNode = node name
         let newLst = removeFromList liveness name
-        let newGraph = List.fold (fun acc elem-> addVarToGraph elem graph newLst) graph newLst
-        Map.fold (fun acc k (_,_,lst) ->
-            if mem k newLst then
-                Map.add k (0,Dummy,newNode::lst) acc else acc) newGraph newGraph |>
-        Map.add name (List.fold (fun (_,_,acc) elem -> (0,Dummy,(elem::acc))) (0,Dummy,[]) newLst) 
+        let newGraph = List.fold (fun acc elem->
+            match Map.tryFind elem acc with
+            |Some (d,lst)->
+                if mem newNode lst then acc else Map.add elem (d+1,newNode::lst) acc
+            |None -> acc) graph newLst
+        Map.add newNode (List.length newLst,newLst) newGraph//adds all elem from newLst to adj of newNode
 
 let rec graphFromDStmt dstmt graph =
     match dstmt with
@@ -40,7 +36,7 @@ let rec graphFromDStmt dstmt graph =
     |DExpr(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
     |DBlock(stmtordecs, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |> //create graph
         List.fold (fun acc elem -> graphFromDStmtOrDec elem acc) <| stmtordecs
     |DReturn(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
@@ -61,47 +57,47 @@ let buildGraph (DProg prog) : interferenceGraph =
             | DFundec(_, _, _, body, liveness) ->
                 let newlst = List.fold (fun acc elem -> addVarToGraph elem acc liveness) acc liveness
                 loop xs (graphFromDStmt body newlst)  
-    loop prog Map.empty |>
-    Map.map (fun _ (degree,_, lst) -> (List.length lst, Dummy, lst)) //Populate map with degree information
+    loop prog Map.empty
     
 let decrementDegree g adjList = List.fold (fun acc elem ->
-                        match Map.tryFind elem g with
-                        | Some (deg, c, lst) -> Map.add elem (deg-1, c, lst) g
+                        match Map.tryFind elem acc with
+                        | Some (deg, lst) -> Map.add elem (deg-1, lst) acc
                         | None -> acc ) g adjList
   
 
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
-    let mins = Map.fold (fun (_,min as acc) name (deg,_,_) ->
-                        if deg < min then (name,deg) else acc)
-    let rec aux g stack (minname, mindeg) =
+    let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_) ->
+                       let nmn, nmin, nmxn, nmax as na = if deg < min then (name,deg,mxn,max) else acc
+                       if deg > max then (nmn,nmin,name,deg) else na)
+    
+    let rec aux g stack (minname, mindeg,maxname,maxdeg) =
         match Map.tryFind minname g with
-        | None-> stack
-        | Some(degree, cl, adjList) ->
+        | None->
+            stack
+        | Some(degree, adjList) ->
                 let newGraph = decrementDegree g adjList |> Map.remove minname
-                let newMins = mins (minname,Int32.MaxValue) newGraph
+                let newMins = maximins (minname,Int32.MaxValue,maxname,Int32.MinValue) newGraph
                 if degree < k then
-                    aux newGraph ((minname,cl,adjList)::stack) newMins
-                    else aux newGraph ((minname,Spill,adjList)::stack) newMins    
-            
-    aux graph [] (mins ("",Int32.MaxValue) graph)
+                    aux newGraph ((minname,Dummy,adjList)::stack) newMins
+                else
+                    aux newGraph ((minname,Spill,adjList)::stack) newMins                   
+    aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
     
 let rebuildAndColour stack =
     let rec aux s graph =
         match s with
         | [] -> graph
         | (name, Dummy, lst) :: ns ->
-            let toExclude = List.fold (fun acc node ->
-                       match Map.tryFind node graph with
-                       | None -> acc
-                       | Some col -> col :: acc) [] lst 
-            let regToUse = List.except toExclude temporaries |> List.head
-            Map.add name regToUse graph |>
-            aux ns
-        | (name, Spill, _) :: ns ->
+            match getUnusedRegister graph lst with
+            | None -> failwith "something went wrong in colouring"
+            | Some reg ->
+                Map.add name reg graph |>
+                aux ns
+        | (name, Spill, lst) :: ns ->
             Map.add name Spill graph |>
             aux ns
         | _ -> failwith "something went wrong"
-    aux stack Map.empty
+    aux stack Map.empty 
    
 let regAlloc prog = buildGraph prog |> simplify |> rebuildAndColour 

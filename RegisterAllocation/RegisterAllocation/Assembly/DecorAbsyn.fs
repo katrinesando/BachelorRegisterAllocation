@@ -10,28 +10,15 @@ open Microsoft.VisualBasic
  *)
 open Absyn
 
-type dexpr<'info> =                                                         
-  | DAccess of daccess<'info> * 'info                (* x    or  *p    or  a[e]     *)
-  | DAssign of daccess<'info> * dexpr<'info> * 'info         (* x=e  or  *p=e  or  a[e]=e   *)
-  | DAddr of daccess<'info> * 'info                  (* &x   or  &*p   or  &a[e]    *)
-  | DCstI of int * 'info                     (* Constant                    *)
-  | DPrim1 of string * dexpr<'info> * 'info         (* Unary primitive operator    *)
-  | DPrim2 of string * dexpr<'info> * dexpr<'info> * 'info  (* Binary primitive operator   *)
-  | DAndalso of dexpr<'info>  * dexpr<'info> * 'info      (* Sequential and              *)
-  | DOrelse of dexpr<'info>  * dexpr<'info> * 'info          (* Sequential or               *)
-  | DCall of string * dexpr<'info>  list * 'info     (* Function call f(...)        *)                                                                
-and daccess<'info> =                                                       
-  | DAccVar of string * 'info           (* Variable access        x    *) 
-  | DAccDeref of dexpr<'info>                  (* Pointer dereferencing  *p   *)
-  | DAccIndex of daccess<'info> * dexpr<'info> * 'info       (* Array indexing         a[e] *)
-and dstmt<'info> =                                                     
-  | DIf of dexpr<'info> * dstmt<'info> * dstmt<'info> * 'info           (* Conditional                 *)
-  | DWhile of dexpr<'info> * dstmt<'info> * 'info                (* While loop                  *)
-  | DExpr of dexpr<'info> * 'info                        (* Expression statement   e;   *)
-  | DReturn of dexpr<'info> option * 'info               (* Return from method          *)
-  | DBlock of stmtordec<'info> list * 'info            (* Block: grouping and scope   *)
+
+type dstmt<'info> =                                                     
+  | DIf of expr * dstmt<'info> * dstmt<'info> * 'info           (* Conditional                 *)
+  | DWhile of expr * dstmt<'info> * 'info                (* While loop                  *)
+  | DExpr of expr * 'info                        (* Expression statement   e;   *)
+  | DReturn of expr option * 'info               (* Return from method          *)
+  | DBlock of dstmtordec<'info> list * 'info            (* Block: grouping and scope   *)
                                                                    
-and stmtordec<'info> =                                                    
+and dstmtordec<'info> =                                                    
   | DDec of typ * string * 'info           (* Local variable declaration  *)
   | DStmt of dstmt<'info> * 'info                       (* A statement                 *)
 
