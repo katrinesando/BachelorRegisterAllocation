@@ -1,6 +1,6 @@
-﻿void main()
+﻿void main(int n)
 {
-    print test3();
+    print test3(n);
 }
 
 int one()
@@ -20,7 +20,7 @@ int return69()
     
 }
 
-int test3()
+int test3(int n)
 {
     int x;
     x = 0;
@@ -34,19 +34,19 @@ int test3()
     b = 0;
     int counter;
     counter = 0;
-    while(x!=6)
+    while(x!=n)
     {
         x = x+1;
-        while(y!=6)
+        while(y!=n)
         {
             y = y+1;
-            while(z!=6)
+            while(z!=n)
             {
                 z = z+1;
-                while(a!=6)
+                while(a!=n)
                 {
                     a = a+1;
-                    while(b!=6)
+                    while(b!=n)
                     {
                         counter = counter + return69();
                         b = b+1;
