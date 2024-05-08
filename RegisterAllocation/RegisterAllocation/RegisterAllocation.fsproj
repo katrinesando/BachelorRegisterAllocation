@@ -65,7 +65,7 @@
         <Content Include="Assembly\mcexamples\ex6.asm" />
         <Content Include="Assembly\mcexamples\ex11.asm" />
         <Content Include="Assembly\mcexamples\ex11.o" />
-        <ClCompile Include="Assembly\mcexamples\jakobTest.c" />
+        <ClCompile Include="Assembly\mcexamples\many_vars.c" />
         <ClCompile Include="Assembly\mcexamples\johanTest.c" />
     </ItemGroup>
 
