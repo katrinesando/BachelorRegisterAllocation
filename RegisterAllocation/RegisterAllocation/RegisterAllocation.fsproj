@@ -72,7 +72,7 @@
         <ClCompile Include="Assembly\mcexamples\ex_call.c" />
         <ClCompile Include="Assembly\mcexamples\ex_ope.c" />
         <ClCompile Include="Assembly\mcexamples\isoTest.c" />
-        <ClCompile Include="Assembly\mcexamples\johanTest.c" />
+        <ClCompile Include="Assembly\mcexamples\nested_whileloops.c" />
         <ClCompile Include="Assembly\mcexamples\ex_glovars.c" />
         <ClCompile Include="Assembly\mcexamples\test.c" />
         <ClCompile Include="Assembly\mcexamples\test0.c" />
