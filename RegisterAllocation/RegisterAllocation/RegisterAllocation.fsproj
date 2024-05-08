@@ -79,7 +79,7 @@
         <ClCompile Include="Assembly\mcexamples\test1.c" />
         <ClCompile Include="Assembly\mcexamples\malteTest.c" />
         <ClCompile Include="Assembly\mcexamples\test3.c" />
-        <ClCompile Include="Assembly\mcexamples\jakobTest.c" />
+        <ClCompile Include="Assembly\mcexamples\many_vars.c" />
     </ItemGroup>
 
 </Project>
