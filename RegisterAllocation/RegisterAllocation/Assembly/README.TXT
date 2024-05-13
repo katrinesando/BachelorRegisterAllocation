@@ -14,7 +14,7 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
-   dotnet fsi -r [path to FsLexYacc.Runtime.dll] Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
+   dotnet fsi -r [path to FsLexYacc.Runtime.dll] Absyn.fs Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
    Katrine:  dotnet fsi -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
 
    open ParseAndComp;;
@@ -33,8 +33,8 @@ C. Build a micro-C compiler (generating assembly code) as a command-line program
    fsharpc --standalone -r FsLexYacc.Runtime.dll  Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
 
    fsc -r FsLexYacc.Runtime.dll  Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
-
-   microccasm ex11.c
+   fsc -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
+   microccasm print_num.c
 
 ----------------------------------------------------------------------
 

@@ -14,7 +14,7 @@ let _ =
                  else source
       let target = stem + ".asm"
       printf "Compiling %s to %s\n" source target;
-      try ignore (X86Comp.compileToFile (Parse.fromFile source) target)
+      try ignore (X64Comp.compileToFile (Parse.fromFile source) target)
       with Failure msg -> printf "ERROR: %s\n" msg
    else
       printf "Usage: microccasm <source file>\n";;
