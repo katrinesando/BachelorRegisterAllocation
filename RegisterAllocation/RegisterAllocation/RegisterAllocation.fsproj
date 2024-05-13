@@ -56,6 +56,15 @@
         <ClCompile Include="Assembly\mcexamples\simpleArr.c" />
         <ClCompile Include="Assembly\mcexamples\print_num.c" />
         <ClCompile Include="Assembly\mcexamples\glovarsPrint.c" />
+        <Content Include="Assembly\mcexamples\ex1" />
+        <Content Include="Assembly\mcexamples\ex1.asm" />
+        <Content Include="Assembly\mcexamples\ex1.o" />
+        <Content Include="Assembly\mcexamples\ex23" />
+        <Content Include="Assembly\mcexamples\ex23.asm" />
+        <Content Include="Assembly\mcexamples\ex23.o" />
+        <Content Include="Assembly\mcexamples\print_num" />
+        <Content Include="Assembly\mcexamples\print_num.asm" />
+        <Content Include="Assembly\mcexamples\print_num.o" />
         <Content Include="Assembly\LexAndParse\FsLexYacc.Runtime.dll" />
     </ItemGroup>
 

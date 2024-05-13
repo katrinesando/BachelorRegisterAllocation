@@ -50,7 +50,6 @@ Windows: NOT SUPPORTED (only with supported with WSL)
 
 Linux/WSL:
    gcc -m64 -c driver.c        
-   nasm -f elf print_num.asm
    nasm -f elf64 print_num.asm
    gcc -no-pie -m64 driver.o print_num.o -o print_num
    ./print_num 8
