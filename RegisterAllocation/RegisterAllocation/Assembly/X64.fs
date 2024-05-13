@@ -28,8 +28,6 @@
      and function entry point labels.  *)
 
 (* The MacOS and Windows linkers are not tested. The Linux/gcc linker does not expect an underscore (_) before external and global names. *)
-   
-open Allocate
 let isLinux = true
 let prefix = if isLinux then "" else "_"
 

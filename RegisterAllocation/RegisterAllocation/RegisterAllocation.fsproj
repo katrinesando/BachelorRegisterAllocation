@@ -8,11 +8,7 @@
     <ItemGroup>
         <Content Include="Assembly\nasm\README.TXT" />
         <Content Include="Assembly\nasm\linsimple.asm" />
-        <Content Include="Assembly\nasm\macbetter.asm" />
-        <Content Include="Assembly\nasm\macfac.asm" />
-        <Content Include="Assembly\nasm\macsimple.asm" />
         <Content Include="Assembly\nasm\try.o" />
-        <Content Include="Assembly\nasm\winsimple.asm" />
         <Content Include="Assembly\README.TXT" />
         <Compile Include="Assembly\Absyn.fs" />
         <Compile Include="Assembly\CLex.fs" />
@@ -24,12 +20,9 @@
         <Content Include="Assembly\FSharp.Core.dll" />
         <Content Include="Assembly\microccasm.exe" />
         <Compile Include="Assembly\Parse.fs" />
-        <Compile Include="Assembly\Allocate.fs" />
         <Compile Include="Assembly\X64.fs" />
         <Content Include="Assembly\try1" />
-        <Compile Include="Assembly\X86.fs" />
         <Compile Include="Assembly\X64Comp.fs" />
-        <Compile Include="Assembly\X86Comp.fs" />
         <Compile Include="Assembly\MicroCCAsm.fs" />
         <Compile Include="Assembly\ParseAndComp.fs" />
         <ClCompile Include="Assembly\mcexamples\ex11count.c" />
@@ -59,12 +52,11 @@
         <ClCompile Include="Assembly\mcexamples\ex9.c" />
         <ClCompile Include="Assembly\mcexamples\ex10.c" />
         <ClCompile Include="Assembly\mcexamples\ex11.c" />
-        <Content Include="Assembly\mcexamples\ex1.asm" />
-        <Content Include="Assembly\mcexamples\ex1.o" />
-        <Content Include="Assembly\mcexamples\ex6.asm" />
-        <Content Include="Assembly\mcexamples\ex11.asm" />
-        <Content Include="Assembly\mcexamples\ex11.o" />
-        <ClCompile Include="Assembly\mcexamples\johanTest.c" />
+        <ClCompile Include="Assembly\mcexamples\stress_noalloc1.c" />
+        <ClCompile Include="Assembly\mcexamples\simpleArr.c" />
+        <ClCompile Include="Assembly\mcexamples\print_num.c" />
+        <ClCompile Include="Assembly\mcexamples\glovarsPrint.c" />
+        <Content Include="Assembly\LexAndParse\FsLexYacc.Runtime.dll" />
     </ItemGroup>
 
 </Project>
