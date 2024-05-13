@@ -13,7 +13,7 @@ type node = string //varname
 type interferenceGraph = Map<node,int * node list> //name, degree * colour * node list
 
 let temporaries =
-    [Rcx;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] //Rdx
+    [Rcx;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15]
     
 let mem x xs = List.exists (fun y -> x=y) xs
 let addVarToGraph name (graph : interferenceGraph) liveness =
@@ -27,8 +27,10 @@ let addVarToGraph name (graph : interferenceGraph) liveness =
             |Some (d,lst)->
                 if mem newNode lst then acc else Map.add elem (d+1,newNode::lst) acc
             |None -> acc) graph newLst
-        Map.add newNode (List.length newLst,newLst) newGraph//adds all elem from newLst to adj of newNode
+        (*Uses newLst as the adjacency list of newNode*)
+        Map.add newNode (List.length newLst,newLst) newGraph
 
+(*Adds variables from liveness information annotated to dstmt to graph*)
 let rec graphFromDStmt dstmt graph =
     match dstmt with
     |DIf(_, s1, s2, liveness) ->
@@ -40,7 +42,7 @@ let rec graphFromDStmt dstmt graph =
     |DExpr(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
     |DBlock(stmtordecs, liveness) ->
-        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |> //create graph
+        List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness |>
         List.fold (fun acc elem -> graphFromDStmtOrDec elem acc) <| stmtordecs
     |DReturn(_, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
@@ -51,7 +53,7 @@ and graphFromDStmtOrDec stmtOrDec graph =
     | DDec(_, name, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
 
-(* Builds an interference graph for the given DProg*)
+(* Builds an interference graph for the given program *)
 let buildGraph (DProg prog) : interferenceGraph =
     let rec loop rest acc =
         match rest with
@@ -94,7 +96,9 @@ let simplify (graph : interferenceGraph) =
                     aux newGraph ((minname,Spill,adjList)::stack) newMins                   
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
    
-   
+(*
+    Gets a register used by none of the variables in lst as denoted by graph
+*) 
 let getUnusedRegister graph lst =
     let toExclude = List.fold (fun acc node ->
                        match Map.tryFind node graph with
