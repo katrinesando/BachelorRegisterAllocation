@@ -1,7 +1,18 @@
 ﻿module Rename
+(* File Assembly/Rename.fs
+   Renames variables, as well as wrapping expressions in temporaries 
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk 2024-05-15
+   Must precede Parse.fs in Solution Explorer
+ *)
 
 open Absyn
 
+(* Looks up in map to replace uses of renamed variables:
+
+    * depth     is the current program depth
+    * name      is the name of the variable to replace
+    * m         is the map used for lookup
+ *)
 let rec lookupInMap depth (name : string) m =
     if depth >= 0 then
         match Map.tryFind depth m with
@@ -14,14 +25,24 @@ let rec lookupInMap depth (name : string) m =
                 aux vars
     else
         failwith ("variable " + name + " not declared")
-  
+
+(* Add depth (key) and name (value) to map. Used for replacing uses of renamed variables *)
 let addToMap depth name m =
     match Map.tryFind depth m with
     |None -> Map.add depth [name] m
     |Some vars ->
         let newlst = name::vars
         Map.add depth newlst m
-        
+
+(* Traverses statements and traps expressions as temporaries:
+   
+   * stmt   is the statement to be traversed
+   * depth  is the current depth of the program
+   * map    is the map used to store renamed variable names
+   * counter is the global counter used for renaming variables
+   * tempCount is the global counter used for unique temporary names
+      
+ *)     
 let rec rStmt stmt depth map counter tempCount =
     match stmt with
     | If(e, stmt1, stmt2) ->
@@ -49,7 +70,8 @@ let rec rStmt stmt depth map counter tempCount =
     | Return (Some e) ->
         let ex, newTempCount = rExpr e depth map tempCount
         Return (Some (Temp(("/"+ string newTempCount), ex))), counter, newTempCount+1
-  
+
+(* Traverses statements or declarations and renames the declaration of variables *)
 and rStmtOrDec stmtOrDec depth map counter tempCount =
     match stmtOrDec with 
     | Stmt stmt    ->
@@ -59,7 +81,8 @@ and rStmtOrDec stmtOrDec depth map counter tempCount =
         let newName = x + string counter 
         let newmap = addToMap depth newName map
         (Dec(typ, newName), newmap), counter+1, tempCount
-    
+
+(* Traverses expressions and wraps expressions in temporaries *)
 and rExpr (e : expr) depth map tempCount = 
     match e with
     | Access acc     ->
@@ -94,11 +117,12 @@ and rExpr (e : expr) depth map tempCount =
             | [] -> List.rev acc, tc
             | r::res ->
                 let s, newTempCount1 = rExpr r depth map tc
-                (*args not in temp to avoid additional mov instructions*)
+                (* function arguments are not wrapped in temps to avoid additional mov instructions*)
                 loop res (s:: acc) newTempCount1 
         let exLst, newTempCount2 = loop lst [] tempCount
         Call (name,exLst), newTempCount2
-        
+
+(* Traverses accesses, renames variable uses, and wraps expressions in temporaries *)
 and rAccess access depth map tempCount =
   match access with
   | AccVar x            -> AccVar (lookupInMap depth x map), tempCount
@@ -110,10 +134,21 @@ and rAccess access depth map tempCount =
       let ex, newTempCount2 = rExpr idx depth map newTempCount1
       AccIndex (rac,Temp ("/"+ string newTempCount2,ex)), newTempCount2+1
 
-(*function arguments are depth 1*)
+(* Adds functions arguments to map for renaming:
+   
+   * args   is function arguments
+   * map    is the map used to store renamed variable names
+
+   AddToMap is called with 1 as argument, as function arguments are depth 1 in the program
+*)
 let addFunArgsToMap args map =
     List.fold (fun m arg -> addToMap 1 (snd arg) m) map args
 
+(* Initiates rename pass calling other recursive functions
+  
+   AddToMap is called with 1 for function arguments, as they are depth 1 in the program
+   AddToMap is called with 0 for global variables, as they are depth 0 in the program 
+*)
 let renameVars (Prog prog) =
     let rec aux res (tree,map) counter tc =
         match res with
