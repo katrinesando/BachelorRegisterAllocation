@@ -126,7 +126,7 @@ let bottomUpAnalysis (Prog prog) =
                 aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
     DProg(aux (List.rev prog) ([],[]))
 
-(* Forward dataflow pass to remove global variables from liveness information*)       
+     
 let rec topDownStmt dstmt glovars =
     match dstmt with
     | DIf(e, dstmt1, dstmt2, info) ->
@@ -167,6 +167,7 @@ and topDownDStmtordec dstmtordec glovars =
         let dstmt, liveness = topDownStmt ds glovars
         DStmt(dstmt, liveness)
 
+(* Forward dataflow pass to remove global variables from liveness information*)  
 let topDownAnalysis (DProg prog) =
     let rec aux res (dtree,glovars as acc) =
         match res with
