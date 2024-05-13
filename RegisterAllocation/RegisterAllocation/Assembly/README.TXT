@@ -40,32 +40,22 @@ C. Build a micro-C compiler (generating assembly code) as a command-line program
 ----------------------------------------------------------------------
 
 ASSEMBLING, LINKING AND RUNNING COMPILED MICRO-C PROGRAMS
+Currently, linking and running the compiled Micro-C programs only works on either Linux or WSL.
 
 MacOS: NOT SUPPORTED
+Windows: NOT SUPPORTED
 
 ------
 
-Linux:
-
-   gcc -m64 -c driver.c		
-   nasm -f elf ex11.asm
+Linux/WSL:
+   gcc -m64 -c driver.c        
+   nasm -f elf print_num.asm
    nasm -f elf64 print_num.asm
    gcc -no-pie -m64 driver.o print_num.o -o print_num
-   ./try11 8
+   ./print_num 8
 
    No underscores (_) in external function names.
 
    Stack alignment constraints are not needed, but harmless.
 
 ------
-
-Windows (Windows 10, Command Prompt for VS 2017):
-
-   cl -c driver.c
-   nasm -f win32 ex11.asm
-   cl driver.obj ex11.obj /Fetry11.exe
-   try11.exe 8
-   
-   Must use underscore-prefixed external names _printi, _printc, ...
-
-   Stack alignment constraints are not needed, but harmless.

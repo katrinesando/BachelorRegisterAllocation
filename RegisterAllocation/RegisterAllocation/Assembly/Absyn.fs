@@ -1,8 +1,8 @@
 (* File MicroC/Absyn.fs
    Abstract syntax of micro-C, an imperative language.
    sestoft@itu.dk 2009-09-25
-
-   Must precede Interp.fs, Comp.fs and Contcomp.fs in Solution Explorer
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk 2024-05-15
+   Must precede all of .fs files in Solution Explorer
  *)
 
 module Absyn

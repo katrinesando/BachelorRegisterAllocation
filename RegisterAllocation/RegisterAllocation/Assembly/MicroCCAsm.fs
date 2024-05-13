@@ -4,7 +4,7 @@ module MicroCCAsm
 
 let args = System.Environment.GetCommandLineArgs();;
 
-let _ = printf "Micro-C register-based x86 compiler v 1.0.0.0 of 2017-05-03\n";;
+let _ = printf "Micro-C register-based x86-64 compiler v 1.0.0.0 of 2024-05-15\n";;
 
 let _ = 
    if args.Length > 1 then

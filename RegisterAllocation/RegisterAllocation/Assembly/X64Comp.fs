@@ -1,44 +1,28 @@
 ﻿module X64Comp
-(* File Assembly/X86Comp.sml
+(* File Assembly/X64Comp.sml
 
-   Micro-C compiler that generate an x86 assembler-oriented bytecode.
+   Micro-C compiler that generate an x86-64 assembler-oriented bytecode.
    Based on Niels Kokholm's SML version (March 2002) and
-   MicroC/Comp.fs
+   MicroC/Comp.fs (see chapter 8 of Programming Language Concepts, second edition, 2017)
 
    sestoft@itu.dk * 2017-05-01
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk * 2024-05-15
 
-   Differences from MicroC/Comp.fs:
+   The created assembly file can be translated (by nasm) to a .o or
+   .obj file defining two entry points: init and main. This file can
+   be linked together with the compiled driver.o to a complete
+   executable file. This has been tested 2024-05-15 with gcc on
+   Linux and Windows with WSL.
 
-    * Uses X86.fs for code emission instead of Machine.fs.
-
-    * The label of a function entry point is of type flabel instead of
-      label. This changes type funEnv. The label for function "fname"
-      is "_fname" instead of a label created by newLabel(). Also a
-      change in function cProgram.
-
-    * Some changes in compileToFile to enable insertion of a standard
-      assembler file header and headers for the functions init and
-      main.
-
-    * The argc is added to the return type of cProgram so that
-      compileToFile can insert code to check the number of
-      arguments. This eliminates one source of mysterious crashes.
-
-    The created assembly file can be translated (by nasm) to a .o or
-    .obj file defining two entry points: init and main. This file can
-    be linked together with the compiled driver.o to a complete
-    executable file.  This has been tested 2016-12-12 with gcc on
-    MacOS and Linux, and should work on Windows also, provided one has
-    the Visual Studio C linker cl.
-
-    For a general description of the compiler, see chapter 14 of
-    Programming Language Concepts, second edition, 2017.
+   For a general description of the compiler, see chapter 14 of
+   Programming Language Concepts, second edition, 2017.
+   
+   Example programs are found in the folder mcexamples
 *)
 
 open System.IO
 open Absyn
 open X64
-open Allocate
 
 (* ------------------------------------------------------------------- *)
 
@@ -94,7 +78,20 @@ let bindParam (env, fdepth) (typ, x)  : varEnv =
     ((x, (Locvar fdepth, typ)) :: env , fdepth+1)
 
 let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
-    List.fold bindParam (env, fdepth) paras;
+    List.fold bindParam (env, fdepth) paras
+    
+(* Get temporary register not in pres; throw exception if none available *)
+let getTemp pres : reg64 option =
+    let rec aux available =
+        match available with
+            | []          -> None
+            | reg :: rest -> if mem reg pres then aux rest else Some reg
+    aux temporaries
+
+let getTempFor (pres : reg64 list) : reg64 =
+    match getTemp pres with
+    | None     -> failwith "no more registers, expression too complex"
+    | Some reg -> reg
 
 (* ------------------------------------------------------------------- *)
 
@@ -345,5 +342,4 @@ let compileToFile program fname =
     asmToFile code fname;
     functions 
 
-(* Example programs are found in the files ex1.c, ex2.c, etc *)
 
