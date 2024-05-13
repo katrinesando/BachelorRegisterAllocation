@@ -16,13 +16,13 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs DecorAbsyn.fs Utility.fs Decorate.fs Rename.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs 
-    
-   Adam: dotnet fsi -r /home/adamhadoutemsamani/Documents/fsharp/FsLexYacc.Runtime.dll Absyn.fs DecorAbsyn.fs Utility.fs Decorate.fs Rename.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs 
+   
+   dotnet fsi -r <path\to\FsLexYacc.Runtime.dll> Absyn.fs DecorAbsyn.fs Utility.fs Decorate.fs Rename.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs 
     
    open ParseAndComp;;
    compileToFile (fromFile "mcexamples\print_num.c") "print_num.asm";;
-   compileToFile (fromFile "ex6.c") "ex6.asm";;
-   compileToFile (fromFile "ex11.c") "ex11.asm";;
+   compileToFile (fromFile "mcexamples\ex6.c") "ex6.asm";;
+   compileToFile (fromFile "mcexamples\ex11.c") "ex11.asm";;
 
    Then the generated assembly code in the .asm files must be
    assembled and linked with the C driver code in driver.c.  Precisely
