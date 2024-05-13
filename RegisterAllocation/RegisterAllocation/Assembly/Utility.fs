@@ -1,6 +1,6 @@
 ﻿module Utility
 (* File Assembly/Utility.fs
-   Utility functions used in 
+   A type and a function used in multiple otherwise unrelated files
    ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk 2024-05-15
    Must precede X64Comp.fs, Comp.fs and Contcomp.fs in Solution Explorer
  *)

@@ -9,13 +9,14 @@ open Utility
 open Absyn
 open DecorAbsyn
 let removeTemps lst =
-    List.filter(fun (elem:string) -> if (elem.StartsWith "/") then false else true) lst //for simplicity all temp are removed from liveness
+    List.filter(fun (elem:string) -> if (elem.StartsWith "/") then false else true) lst 
 
+(* Decoration and dataflow analysis of micro-c statements*)
 let rec aStmt stmt lst =
     match stmt with
     | If(e, stmt1, stmt2) ->
-        let (elseStmt, lst1) = aStmt stmt2 lst
-        let (thenStmt, lst2) = aStmt stmt1 lst1
+        let elseStmt, lst1 = aStmt stmt2 lst
+        let thenStmt, lst2 = aStmt stmt1 lst1
         let ex,newlist = aExpr e lst2
         DIf(ex, thenStmt, elseStmt, newlist), newlist
     | While(e, body) ->
@@ -40,6 +41,7 @@ let rec aStmt stmt lst =
         DReturn(Some ex, newlist), newlist
   
 and aStmtOrDec stmtOrDec lst  =
+    (*for simplicity all temps are removed from liveness after each statement*)
     let tempsRemoved = removeTemps lst
     match stmtOrDec with 
     | Stmt stmt    ->
@@ -48,7 +50,8 @@ and aStmtOrDec stmtOrDec lst  =
     | Dec (typ, x) ->
         let newlist = removeFromList tempsRemoved x
         DDec(typ, x, tempsRemoved),newlist
-    
+
+(* dataflow analysis of micro-c expressions*)    
 and aExpr (e : expr) lst = 
     match e with
     | Access acc     ->
@@ -89,14 +92,16 @@ and aExpr (e : expr) lst =
     | Temp(name, e) ->
         let newExpr1, lst1 = aExpr e lst
         Temp(name, newExpr1), name::lst1
+
+(* dataflow analysis of variable accesses, pointer dereferences, and array indexing *)    
 and aAccess access lst  =
   match access with
   | AccVar x            ->
       if List.contains x lst |> not
       then
-        AccVar x, (x::lst)  //adds live variable to list
+        AccVar x, (x::lst)
       else
-        AccVar x, lst   //adds live variable to list
+        AccVar x, lst
   | AccDeref e          ->
       let newExpr, newLst = aExpr e lst
       AccDeref newExpr, newLst
@@ -105,6 +110,7 @@ and aAccess access lst  =
       let newAcc, newLst = aAccess acc exprLst
       AccIndex (newAcc, newExpr), newLst
 
+(* Determines liveness of variables and temporaries in prog*)
 let bottomUpAnalysis (Prog prog) =
     let rec aux res (dtree,livelist as acc) =
         match res with
@@ -119,31 +125,28 @@ let bottomUpAnalysis (Prog prog) =
                 let newlist = List.fold (fun acc elem -> removeFromList acc (snd elem)) stmtList args
                 aux xs (DFundec(rtyp,name,args, decoratedBody, stmtList)::dtree,newlist) 
     DProg(aux (List.rev prog) ([],[]))
-    
+
+(* Forward dataflow pass to remove global variables from liveness information*)       
 let rec topDownStmt dstmt glovars =
     match dstmt with
     | DIf(e, dstmt1, dstmt2, info) ->
         let newLiveness = List.except glovars info
-        let expr = topDownExpr e
         let thenDstmt,_ = topDownStmt dstmt1 glovars
         let elseDstmt,_ = topDownStmt dstmt2 glovars
-        DIf(expr, thenDstmt, elseDstmt, newLiveness), newLiveness
+        DIf(e, thenDstmt, elseDstmt, newLiveness), newLiveness
     | DWhile(e, dstmt, info) ->
         let newLiveness = List.except glovars info
-        let expr = topDownExpr e
         let body, lst1 = topDownStmt dstmt glovars
-        DWhile(expr, body, newLiveness), newLiveness
+        DWhile(e, body, newLiveness), newLiveness
     | DExpr(e, info) ->
         let newLiveness = List.except glovars info
-        let expr = topDownExpr e
-        DExpr(expr, newLiveness), newLiveness
+        DExpr(e, newLiveness), newLiveness
     | DReturn (None, info) ->
         let newLiveness = List.except glovars info
         DReturn(None, newLiveness), []
     | DReturn (Some e, info) ->
         let newLiveness = List.except glovars info
-        let expr = topDownExpr e
-        DReturn(Some expr, newLiveness), []
+        DReturn(Some e, newLiveness), []
     | DBlock(stmtordecs, info) ->
         let rec loop rest (accStmts as acc) =
             match rest with
@@ -163,54 +166,7 @@ and topDownDStmtordec dstmtordec glovars =
     | DStmt(ds, info) ->
         let dstmt, liveness = topDownStmt ds glovars
         DStmt(dstmt, liveness)
-and topDownExpr expr =
-    match expr with
-    | Access acc ->
-        let a = topDownAccess acc
-        Access a
-    | Assign(acc, e) ->
-        let expr = topDownExpr e
-        let a = topDownAccess acc
-        Assign (a,expr)
-    | Addr acc ->
-        let a  = topDownAccess acc
-        Addr a
-    | CstI i -> CstI i
-    | Prim1(ope, e) ->
-        let expr = topDownExpr e
-        Prim1(ope, expr)
-    | Prim2(ope, e1, e2) ->
-        let expr1= topDownExpr e1
-        let expr2 = topDownExpr e2
-        Prim2(ope, expr1, expr2)
-    | Andalso(e1, e2) ->
-        let expr1 = topDownExpr e1
-        let expr2 = topDownExpr e2
-        Andalso(expr1, expr2)
-    | Orelse(e1, e2) ->
-        let expr1 = topDownExpr e1
-        let expr2 = topDownExpr e2
-        Orelse(expr1, expr2)
-    | Call(name, e) ->
-        let expr = List.fold(fun exprs elem ->
-            let expr = topDownExpr elem
-            (expr :: exprs)) [] e
-        Call(name, expr)
-    | Temp(name, e) ->
-        let expr = topDownExpr e
-        Temp(name, expr)
-        
-and topDownAccess acc =
-    match acc with
-    |AccVar name ->
-        AccVar name
-    |AccDeref e->
-        let expr = topDownExpr e
-        AccDeref expr
-    |AccIndex(acc, idx) ->
-        let expr = topDownExpr idx
-        let a = topDownAccess acc
-        AccIndex (a,expr)
+
 let topDownAnalysis (DProg prog) =
     let rec aux res (dtree,glovars as acc) =
         match res with
@@ -221,8 +177,8 @@ let topDownAnalysis (DProg prog) =
                 let newGlovars = Set.add name glovars
                 aux xs (DVardec(t,name,info) :: dtree,newGlovars) 
             | DFundec(rtyp, name, args, body, info) ->
-                let decoratedBody,stmtList = topDownStmt body glovars //Cannot assign to variable from function
-                aux xs (DFundec(rtyp,name,List.rev args, decoratedBody, stmtList)::dtree,glovars) // pointerRefs - local pointers don't effect other local pointers - hence not updated
+                let decoratedBody,stmtList = topDownStmt body glovars 
+                aux xs (DFundec(rtyp,name,List.rev args, decoratedBody, stmtList)::dtree,glovars) 
     DProg(aux (prog) ([],Set.empty)) 
 
 

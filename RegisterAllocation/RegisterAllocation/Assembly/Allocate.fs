@@ -94,7 +94,9 @@ let simplify (graph : interferenceGraph) =
                     aux newGraph ((minname,Spill,adjList)::stack) newMins                   
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
    
-   
+(*
+    Gets a register used by none of the variables in lst as denoted by graph
+*) 
 let getUnusedRegister graph lst =
     let toExclude = List.fold (fun acc node ->
                        match Map.tryFind node graph with
