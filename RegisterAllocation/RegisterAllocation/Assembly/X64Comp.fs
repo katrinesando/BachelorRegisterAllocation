@@ -1,40 +1,24 @@
 ﻿module X64Comp
-(* File Assembly/X86Comp.sml
+(* File Assembly/X64Comp.sml
 
-   Micro-C compiler that generate an x86 assembler-oriented bytecode.
+   Micro-C compiler that generate an x86-64 assembler-oriented bytecode.
    Based on Niels Kokholm's SML version (March 2002) and
-   MicroC/Comp.fs
+   MicroC/Comp.fs (see chapter 8 of Programming Language Concepts, second edition, 2017)
 
    sestoft@itu.dk * 2017-05-01
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk * 2024-05-15
 
-   Differences from MicroC/Comp.fs:
+   The created assembly file can be translated (by nasm) to a .o or
+   .obj file defining two entry points: init and main. This file can
+   be linked together with the compiled driver.o to a complete
+   executable file. This has been tested 2024-05-15 with gcc on
+   Linux and Windows with WSL.
 
-    * Uses X86.fs for code emission instead of Machine.fs.
-
-    * The label of a function entry point is of type flabel instead of
-      label. This changes type funEnv. The label for function "fname"
-      is "_fname" instead of a label created by newLabel(). Also a
-      change in function cProgram.
-
-    * Some changes in compileToFile to enable insertion of a standard
-      assembler file header and headers for the functions init and
-      main.
-
-    * The argc is added to the return type of cProgram so that
-      compileToFile can insert code to check the number of
-      arguments. This eliminates one source of mysterious crashes.
-
-    The created assembly file can be translated (by nasm) to a .o or
-    .obj file defining two entry points: init and main. This file can
-    be linked together with the compiled driver.o to a complete
-    executable file.  This has been tested 2016-12-12 with gcc on
-    MacOS and Linux, and should work on Windows also, provided one has
-    the Visual Studio C linker cl.
-
-    For a general description of the compiler, see chapter 14 of
-    Programming Language Concepts, second edition, 2017.
+   For a general description of the compiler, see chapter 14 of
+   Programming Language Concepts, second edition, 2017.
+   
+   Example programs are found in the folder mcexamples
 *)
-
 open System.IO
 open Absyn
 open X64
@@ -43,7 +27,6 @@ open Allocate
 (* ------------------------------------------------------------------- *)
 
 (* Simple environment operations *)
-
 type 'data env = (string * 'data) list
 
 let rec lookup env x = 
@@ -52,23 +35,19 @@ let rec lookup env x =
     | (y, v)::yr -> if x=y then v else lookup yr x
 
 (* A global variable has a fixed address, a local one has an offset: *)
-
 type var = 
     Glovar of int                   (* address relative to bottom of stack *)
   | Locvar of int                   (* address relative to bottom of frame *)
 
 (* The variable environment keeps track of global and local variables, and 
    keeps track of next available offset for local variables *)
-
 type varEnv = (var * typ) env * int
 
 (* The function environment maps function name to label and parameter decs *)
-
 type paramdecs = (typ * string) list
 type funEnv = (flabel * typ option * paramdecs) env
 
 (* Bind declared variable in env and generate code to allocate it: *)
-
 let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list =
     let (env, fdepth) = varEnv 
     match typ with
@@ -79,17 +58,16 @@ let allocate (kind : int -> var) (typ, x) (varEnv : varEnv) : varEnv * x86 list 
       let labtest = newLabel()
       let labbegin = newLabel()
       let code = [Ins("mov rax, rsp");
-                  Ins("sub rax, 8"); //4 originalt - this means the array can only hold ints
-                  Ins2("sub", Reg Rsp, Cst (8*i)); //Todo: might need to change the bit shifting for 64 bit(it is 2 currently)
+                  Ins("sub rax, 8"); 
+                  Ins2("sub", Reg Rsp, Cst (8*i)); 
                   Ins1("push", Reg Rax)]
       (newEnv, code) 
     | _ -> 
       let newEnv = ((x, (kind fdepth, typ)) :: env, fdepth+1)
-      let code = [Ins "sub rsp, 8"] //4 originalt
+      let code = [Ins "sub rsp, 8"] 
       (newEnv, code)
 
 (* Bind declared parameters in env: *)
-
 let bindParam (env, fdepth) (typ, x)  : varEnv = 
     ((x, (Locvar fdepth, typ)) :: env , fdepth+1)
 
@@ -99,7 +77,6 @@ let bindParams paras ((env, fdepth) : varEnv) : varEnv =
 (* ------------------------------------------------------------------- *)
 
 (* Global environments for variables and functions *)
-
 let makeGlobalEnvs (topdecs : topdec list) : varEnv * funEnv * x86 list = 
     let rec addv decs varEnv funEnv = 
         match decs with 
@@ -148,18 +125,16 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) : x86 list =
             let (fdepthr, coder) = loop sr varEnv1 
             (fdepthr, code1 @ coder)
       let (fdepthend, code) = loop stmts varEnv
-      code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))]      // was 4
+      code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))]      
     | Return None ->
-        [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4
+        [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); 
          Ins("pop rbp");
          Ins("ret")]
     | Return (Some e) -> 
     cExpr e varEnv funEnv Rbx [] 
-    @ [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); //was 4 - never 4 in RSP
+    @ [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); 
        Ins("pop rbp");
        Ins("ret")]
-
-
 and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) : varEnv * x86 list = 
     match stmtOrDec with 
     | Stmt stmt    -> (varEnv, cStmt stmt varEnv funEnv) 
@@ -168,9 +143,9 @@ and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) : varEnv * x86 list
 (* Compiling micro-C expressions: 
 
    * e       is the expression to compile
-   * varEnv  is the local and gloval variable environment 
+   * varEnv  is the local and global variable environment 
    * funEnv  is the global function environment
-   * tr      is the x86 register in which the result should be computed
+   * tr      is the x86-64 register in which the result should be computed
    * pres    is a list of registers that must be preserved during the computation
    
    Net effect principle: if the compilation (cExpr e varEnv funEnv tr pres) of
@@ -185,10 +160,9 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
         cAccess acc varEnv funEnv tr pres @ [Ins2("mov", Reg tr, Ind tr)] 
     | Assign(acc, e) ->
         let tr' = getTempFor (tr :: pres)
-        //switched cExpr and cAccess
-        in cExpr e varEnv funEnv tr pres //(tr' :: pres)
+        in cExpr e varEnv funEnv tr pres 
            @ [Ins1("push",Reg tr)]
-           @ cAccess acc varEnv funEnv tr' pres //(tr :: pres)
+           @ cAccess acc varEnv funEnv tr' pres 
            @ [Ins1("pop", Reg tr );Ins2("mov", Ind tr', Reg tr)]
     | CstI i         ->
         [Ins2("mov", Reg tr, Cst i)]
@@ -209,24 +183,24 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
         in cExpr e1 varEnv funEnv tr pres
         @ [Ins1("push",Reg tr)]
         @ let tr' = getTempFor (avoid @ pres)
-        //go down expression tree
-          in cExpr e2 varEnv funEnv tr' pres //(tr :: pres)
+        (* Goes down expression tree *)
+          in cExpr e2 varEnv funEnv tr' pres 
              @ match ope with
                | "+"   -> [Ins1("pop", Reg tr);Ins2("add", Reg tr, Reg tr')]
                | "-"   -> [Ins1("pop", Reg tr);Ins2("sub", Reg tr, Reg tr')]
                | "*"   -> [Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres)
-                            [Ins1("imul", Reg tr')] // Invalidates Rdx
+                            [Ins1("imul", Reg tr')] 
                           @ [Ins2("mov", Reg tr, Reg Rax)]
                | "/"   -> [Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres) 
-                            [Ins("cdq");            // Invalidates Rdx
-                             Ins1("idiv", Reg tr')] // Invalidates Rax Rdx
+                            [Ins("cdq");            
+                             Ins1("idiv", Reg tr')] 
                           @ [Ins2("mov", Reg tr, Reg Rax)]
                | "%"   -> [Ins1("pop", Reg tr);Ins2("mov", Reg Rax, Reg tr)]
                           @ preserve Rdx (tr :: pres) 
-                            [Ins("cdq");            // Invalidates Rdx
-                             Ins1("idiv", Reg tr'); // Invalidates Rax Rdx
+                            [Ins("cdq");            
+                             Ins1("idiv", Reg tr'); 
                              Ins2("mov", Reg tr, Reg Rdx)] 
                | "==" | "!=" | "<" | ">=" | ">" | "<="
                   -> let setcompbits = (match ope with
@@ -259,7 +233,6 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (tr : reg64) (pres : re
     | Call(f, es) -> callfun f es varEnv funEnv tr pres
 
 (* Generate code to access variable, dereference pointer or index array: *)
-//pres = registers currently in use
 and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
     match access with 
     | AccVar x ->
@@ -269,11 +242,11 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
       | Locvar addr, _ -> [Ins2("lea", Reg tr, RbpOff (8*addr))]
     | AccDeref e ->
         match e with
-        | Prim2(ope, e1, e2) -> //pointer arithmetic
+        | Prim2(ope, e1, e2) -> (* pointer arithmetic *)
             cExpr e1 varEnv funEnv tr pres @
             let tr' = getTempFor (tr::pres) 
             in cExpr e2 varEnv funEnv tr' (tr :: pres) @
-            match ope with //+/- need to be flipped due to how the stack grow towards lower addresses
+            match ope with (* +/- need to be flipped due to how the stack grow towards lower addresses *)
             | "+" -> [Ins2("sal", Reg tr', Cst 3);Ins2("sub", Reg tr, Reg tr')]
             | "-" -> [Ins2("sal", Reg tr', Cst 3);Ins2("add", Reg tr, Reg tr')]
             | _   -> raise (Failure (ope + " operator not allowed when dereferencing"))
@@ -287,12 +260,10 @@ and cAccess access varEnv funEnv (tr : reg64) (pres : reg64 list) : x86 list =
               Ins2("sub", Reg tr, Reg tr')]
 
 (* Generate code to evaluate a list es of expressions: *)
-
 and cExprs es varEnv funEnv tr : x86 list = 
     List.concat(List.map (fun e -> cExpr e varEnv funEnv tr [] @ [Ins1("push", Reg tr)]) es)
 
 (* Generate code to evaluate arguments es and then call function f: *)
-
 and callfun f es varEnv funEnv tr pres : x86 list =
     let (labf, tyOpt, paramdecs) = lookup funEnv f
     let argc = List.length es
@@ -305,7 +276,6 @@ and callfun f es varEnv funEnv tr pres : x86 list =
         raise (Failure (f + ": parameter/argument mismatch"))
 
 (* Compile a complete micro-C program: globals, call to main, functions *)
-
 let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list = 
     let _ = resetLabels ()
     let ((globalVarEnv, _), funEnv, globalInit) = makeGlobalEnvs topdecs
@@ -332,7 +302,6 @@ let cProgram (Prog topdecs) : x86 list * int * x86 list * x86 list =
 
 (* Compile a complete micro-C and write the resulting assembly code
    file fname; also, return the program as a list of instructions.  *)
-
 let asmToFile (inss : string list) (fname : string) : unit = 
     File.WriteAllText(fname, String.concat "" (List.map string inss))
 
@@ -347,6 +316,3 @@ let compileToFile program fname =
                @ code2x86asm functions
     asmToFile code fname;
     functions 
-
-(* Example programs are found in the files ex1.c, ex2.c, etc *)
-

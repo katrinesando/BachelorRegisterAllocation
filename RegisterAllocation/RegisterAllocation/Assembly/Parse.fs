@@ -2,9 +2,7 @@
 
 module Parse
 
-open System
 open System.IO
-open System.Text
 open FSharp.Text.Lexing
 open Absyn
 

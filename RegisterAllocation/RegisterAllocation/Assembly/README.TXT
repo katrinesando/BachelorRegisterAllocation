@@ -14,7 +14,7 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
-    
+   dotnet fsi -r [path to FsLexYacc.Runtime.dll] Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
    Katrine:  dotnet fsi -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
 
    open ParseAndComp;;
@@ -42,13 +42,12 @@ ASSEMBLING, LINKING AND RUNNING COMPILED MICRO-C PROGRAMS
 Currently, linking and running the compiled Micro-C programs only works on either Linux or WSL.
 
 MacOS: NOT SUPPORTED
-Windows: NOT SUPPORTED
+Windows: NOT SUPPORTED (only supported with WSL)
 
 ------
 
 Linux/WSL:
    gcc -m64 -c driver.c		
-   nasm -f elf print_num.asm
    nasm -f elf64 print_num.asm
    gcc -no-pie -m64 driver.o print_num.o -o print_num
    ./print_num 8

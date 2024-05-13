@@ -1,4 +1,4 @@
-;;; Simplified example of 32-bit mode Linux nasm assembly
+;;; Simplified example of 64-bit mode Linux nasm assembly
 
 global main                    	; Define entry point for this code
 extern printf                  	; Refer to C library function
@@ -6,19 +6,19 @@ extern printf                  	; Refer to C library function
 section .text
                 
 main:
-        push ebp                ; Save old base pointer
-        mov ebp, esp            ; Set new base pointer
-        mov eax, [myint]        ; Load constant 3456 into EAX
-        add eax, 120000         ; Add 120000 to EAX
-        push eax                ; Push EAX value to print
-        push dword mystring     ; Push format string reference
+        push rbp                ; Save old base pointer
+        mov rbp, rsp            ; Set new base pointer
+        mov rax, [myint]        ; Load constant 3456 into RAX
+        mov rdi, qword mystring ; format for printf
+        add rax, 120000         ; Add 120000 to RAX
+        mov rsi, rax            ; Push RAX value to print
         call printf            	; Call C library printf function
-        add esp, 8              ; Discard arguments, 8 bytes
-        mov eax, 0              ; Set return value, success
-        mov esp, ebp            ; Reset stack to base pointer
-        pop ebp                 ; Restore old base pointer
+        add rsp, 8              ; Discard arguments, 8 bytes
+        mov rax, 0              ; Set return value, success
+        mov rsp, rbp            ; Reset stack to base pointer
+        pop rbp                 ; Restore old base pointer
         ret                     ; Return to caller
 
 section .data
-        myint           dd 3456
+        myint           dq 3456
         mystring        db      'The result is ->%d<-', 10, 0
