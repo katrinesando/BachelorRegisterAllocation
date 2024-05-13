@@ -44,25 +44,33 @@ open Utility
 
 (* ------------------------------------------------------------------- *)
 
-//Might run into problems with push and pop with 64-bit nasm (might be a bug that's fixed though)
+
+type 'data env = (string * 'data) list
+type var = 
+    Glovar of int*bool                  (* address relative to bottom of stack *)
+  | Locvar of int*bool
+
+type varEnv = (var * typ) env * int
+
+(* The function environment maps function name to label and parameter decs *)
+
+type paramdecs = (typ * string) list
+type funEnv = (flabel * typ option * paramdecs) env
 let pushAndPop reg code = [Ins1("push", Reg reg)] @ code @ [Ins1("pop", Reg reg)]
 
+let rec lookup env x = 
+    match env with 
+    | []         -> failwith (x + " not found")
+    | (y, v)::yr -> if x=y then v else lookup yr x
+    
 (* Preserve reg across code, on the stack if necessary *)
-let preserve reg live code graph = //TODO stress test with many live variables
+let preserve reg live code graph =
     let inUse = List.fold (fun inUse elem ->
         if reg = Map.find elem graph then true else inUse) false live
     if inUse then
        pushAndPop reg code
     else
         code
-
-(* Preserve all live registers around code, eg a function call *)
-let rec preserveAll pres code graph =
-    match pres with
-    | []          -> code
-    | name :: rest ->
-        let reg = Map.find name graph
-        preserveAll rest (pushAndPop reg code) graph
 
 let allocate kind (typ, x) (varEnv : varEnv) : varEnv * x86 list =
     let env, fdepth = varEnv 
@@ -72,13 +80,13 @@ let allocate kind (typ, x) (varEnv : varEnv) : varEnv * x86 list =
     | TypA (t, Some i) -> 
       let newEnv = ((x, (kind (fdepth+i,false), typ)) :: env, fdepth+i+1)
       let code = [Ins("mov rax, rsp");
-                  Ins("sub rax, 8"); //4 originalt - this means the array can only hold ints
+                  Ins("sub rax, 8");
                   Ins2("sub", Reg Rsp, Cst (8*i));
                   Ins1("push", Reg Rax)]
       (newEnv, code) 
     | _ -> 
       let newEnv = ((x, (kind (fdepth,false), typ)) :: env, fdepth+1)
-      let code = [Ins "sub rsp, 8"] //4 originalt
+      let code = [Ins "sub rsp, 8"] 
       (newEnv, code)
      
 (* Get temporary register not used by a var in liveVars that isn't pres *)
@@ -292,7 +300,7 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
         | Temp(n, _) ->
             match Map.find n graph with
             | Spill ->
-                let tempReg = getTemp Dummy info graph //no reg needs to be preserved
+                let tempReg = getTemp Dummy info graph
                 let env2, eCode = cExpr e env funEnv tempReg info graph
                 allocCode @ eCode @ getValOfTemp n tempReg env
                 @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env2 - snd varEnv))); Ins2("cmp", Reg tempReg, Cst 0)]
@@ -335,7 +343,7 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
             | Spill ->
                 let tempReg = getTemp Dummy info graph
                 let env2,eCode = cExpr e env funEnv tempReg info graph
-                //Since temps always die after DExpr, the final instr tom ove val into addr of temp is useless
+                //Since temps always die after DExpr, the final instr to move val into addr of temp is useless
                 allocCode @ (List.removeAt ((List.length eCode)-1) eCode)
                 @ [Ins2 ("add", Reg Rsp, Cst (8 * (snd env2 - snd varEnv)))]
                 @ restoreCode info graph env2 tempReg
@@ -351,13 +359,12 @@ let rec cStmt stmt (varEnv : varEnv) (funEnv : funEnv) graph : x86 list =
               let fdepthr, coder = loop sr varEnv1 
               (fdepthr, code1 @ coder)
         let fdepthend, code = loop stmts varEnv
-        code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))] //Which varEnv that is given might fuck something up, since temp now also are in varEnv
+        code @ [Ins2("sub", Reg Rsp, Cst (8 * (snd varEnv - fdepthend)))] 
     | DReturn(None,info) ->
         [Ins2("add", Reg Rsp, Cst (8 * snd varEnv)); 
                  Ins("pop rbp");
                  Ins("ret")]
-    | DReturn(Some e,info) ->  //Returns need to be in specific register every time
-         //Return is end of function thus nothing is live in RBX
+    | DReturn(Some e,info) ->  
         match e with
         |Temp(n, _) ->
             let env,allocCode = allocateTemps e graph varEnv
@@ -383,13 +390,14 @@ and cStmtOrDec stmtOrDec (varEnv : varEnv) (funEnv : funEnv) graph : varEnv * x8
    * e       is the expression to compile
    * varEnv  is the local and gloval variable environment 
    * funEnv  is the global function environment
-   * tr      is the x86 register in which the result should be computed
-   * pres    is a list of registers that must be preserved during the computation
+   * reg      is the x86-64 register in which the result should be computed
+   * liveVars  is a list of variable names that are live during the computation
+   * graph     is the interference graph of the program
    
-   Net effect principle: if the compilation (cExpr e varEnv funEnv tr pres) of
+   Net effect principle: if the compilation (cExpr e varEnv funEnv reg liveVars graph) of
    expression e returns the instruction sequence instrs, then the
    execution of instrs will leave the rvalue of expression e in register tr,
-   leave the registers in pres unchanged, and leave the stack depth unchanged.
+   and leave the stack depth unchanged.
 *)
 
 and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars graph : varEnv * x86 list = 
@@ -409,7 +417,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                 | Spill ->
                     if tr <> reg then 
                         let env2, eCode = cExpr e env1 funEnv reg liveVars graph
-                        match accCode with //If empty list, accCode register contains values
+                        match accCode with
                         | [] -> 
                             let addrCode = getAddrOfVarInReg tr reg graph liveVars env2
                             env2,eCode @ [Ins1("push", Reg reg)] @ addrCode
@@ -431,7 +439,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
                                                              @ movToRetReg reg tempReg) graph
                 | r ->
                     let env2, eCode = cExpr e env1 funEnv r liveVars graph
-                    match accCode with //If empty list, accCode register contains values
+                    match accCode with 
                     | [] ->
                         let addrCode = getAddrOfVarInReg tr r graph liveVars env2
                         env2, eCode@ [Ins1("push", Reg r)] @ addrCode @ [Ins1("pop", Reg tr);Ins2("mov", Ind r, Reg tr)]  @ movToRetReg reg tr
@@ -529,8 +537,7 @@ and cExpr (e : expr) (varEnv : varEnv) (funEnv : funEnv) (reg : reg64) liveVars 
             
         
         
-(* Generate code to access variable, dereference pointer or index array: *)
-(* If return empty list tr is a register with a value otherwise it contains an address*)
+(* Generate code to access variable, dereference pointer or index array:*)
 and cAccess access varEnv funEnv reg liveVars graph =
     match access with 
     | AccVar x ->
@@ -596,7 +603,7 @@ and cAccess access varEnv funEnv reg liveVars graph =
                         if tr <> reg then
                             let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
                             accCode @ [Ins2("mov", Reg tr, Ind tr)] @ idxCode
-                            @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr, Reg reg)],env2, tr //tr' from access
+                            @ [Ins2("sal", Reg reg, Cst 3);Ins2("sub", Reg tr, Reg reg)],env2, tr
                         else
                             let tempReg = getTemp reg liveVars graph
                             let env2, idxCode = cExpr idx env1 funEnv reg liveVars graph
@@ -607,19 +614,18 @@ and cAccess access varEnv funEnv reg liveVars graph =
                 | r ->
                         let env2, idxCode = cExpr idx env1 funEnv r liveVars graph
                         accCode @ [Ins2("mov", Reg tr, Ind tr)] @ idxCode
-                        @ [Ins2("sal", Reg r, Cst 3);Ins2("sub", Reg tr, Reg r)],env2, tr //tr' from access
+                        @ [Ins2("sal", Reg r, Cst 3);Ins2("sub", Reg tr, Reg r)],env2, tr
       | _ -> failwith "wrong abstract syntax in AccIndex"
           
 
 (* Generate code to evaluate a list es of expressions: *)
-
 and cExprs es varEnv funEnv reg liveVars graph =
         List.fold(fun instrs elem ->
             let env,eCode = cExpr elem varEnv funEnv reg liveVars graph
             eCode @ [Ins1("push", Reg reg)]
                     @ instrs) [] es
+        
 (* Generate code to evaluate arguments es and then call function f: *)
-
 and callfun f es varEnv funEnv tr liveVars graph =
     let labf, tyOpt, paramdecs = lookup funEnv f
     let argc = List.length es
@@ -629,8 +635,14 @@ and callfun f es varEnv funEnv tr liveVars graph =
     else
         raise (Failure (f + ": parameter/argument mismatch"))
 
-(* Compile a complete micro-C program: globals, call to main, functions *)
 
+(* Bind declared parameters in env: *)       
+let bindParam (env, fdepth) (typ, x)  : varEnv = 
+    ((x, (Locvar (fdepth,false), typ)) :: env , fdepth+1)
+
+let bindParams paras ((env, fdepth) : varEnv) : varEnv = 
+    List.fold bindParam (env, fdepth) paras
+(* Compile a complete micro-C program: globals, call to main, functions *)
 let cProgram (DProg topdecs) graph : x86 list * int * x86 list * x86 list = 
     let _ = resetLabels ()
     let (globalVarEnv, _), funEnv, globalInit = makeGlobalEnvs topdecs

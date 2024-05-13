@@ -30,7 +30,6 @@
 
 (* The MacOS and Windows linkers expect an underscore (_) before
    external and global names, whereas the Linux/gcc linker does not. *)
-open Allocate
 open Utility
 let isLinux = true
 let prefix = if isLinux then "" else "_"
@@ -41,11 +40,7 @@ let checkargc = prefix + "checkargc"
 let asm_main  = prefix + "asm_main"
 
 type label = string
-
-
-
-//General purpose registers for 64-bit
-
+type flabel = string
 (* Operands of x86 instructions *)
 type rand =
     | Cst of int                        (* immediate dword n               *)
@@ -65,6 +60,24 @@ type x86 =
     | PRINTI                            (* print [rsp] as integer          *)
     | PRINTC                            (* print [rsp] as character        *)
 
+let fromReg reg =
+    match reg with
+    | Rax  -> "rax"
+    | Rcx  -> "rcx"
+    | Rdx  -> "rdx"
+    | Rbx  -> "rbx"
+    | Rsi  -> "rsi"
+    | Rdi  -> "rdi"
+    | Rsp  -> "rsp"
+    | Rbp  -> "rbp"
+    | R8   -> "r8"
+    | R9   -> "r9"
+    | R10  -> "r10"
+    | R11  -> "r11"
+    | R12  -> "r12"
+    | R13  -> "r13"
+    | R14  -> "r14"
+    | R15  -> "r15"
 
 let operand rand : string =
     match rand with

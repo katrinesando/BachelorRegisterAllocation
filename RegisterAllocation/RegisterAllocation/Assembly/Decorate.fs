@@ -1,4 +1,9 @@
 ﻿module Decorate
+(* File Assembly/Decorate.fs
+   Decoration of abstract syntax of micro-c
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk 2024-05-15
+   Must precede Parse.fs in Solution Explorer
+ *)
 
 open Utility
 open Absyn

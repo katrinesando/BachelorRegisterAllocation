@@ -1,17 +1,21 @@
 ﻿module Allocate
-
+(* File Assembly/Allocate.fs
+   graph colouring register allocation for micro-c
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk 2024-05-15
+   Must precede X64Comp.fs in Solution Explorer
+ *)
 open System
 open Utility
 open DecorAbsyn
-
-(* The 13 registers that can be used for temporary values in x86-64.
-Allowing RDX requires special handling across IMUL and IDIV *)
-
 
 
 type node = string //varname
 type interferenceGraph = Map<node,int * node list> //name, degree * colour * node list
 
+let temporaries =
+    [Rcx;Rbx; Rsi; Rdi; R8; R9; R10; R11; R12; R13; R14; R15] //Rdx
+    
+let mem x xs = List.exists (fun y -> x=y) xs
 let addVarToGraph name (graph : interferenceGraph) liveness =
     if Map.containsKey name graph then
         graph
@@ -47,6 +51,7 @@ and graphFromDStmtOrDec stmtOrDec graph =
     | DDec(_, name, liveness) ->
         List.fold (fun acc elem -> addVarToGraph elem acc liveness) graph liveness
 
+(* Builds an interference graph for the given DProg*)
 let buildGraph (DProg prog) : interferenceGraph =
     let rec loop rest acc =
         match rest with
@@ -59,12 +64,17 @@ let buildGraph (DProg prog) : interferenceGraph =
                 loop xs (graphFromDStmt body newlst)  
     loop prog Map.empty
     
+(* Decrements the degree of all nodes whose names appear in adjList in the graph g *)    
 let decrementDegree g adjList = List.fold (fun acc elem ->
                         match Map.tryFind elem acc with
                         | Some (deg, lst) -> Map.add elem (deg-1, lst) acc
                         | None -> acc ) g adjList
   
 
+(* Removes each node from the graph in order of ascending degree,
+   each node is added to a list either with a dummy register value 
+   or Spill, marking it such that spill code can be generated
+*)
 let simplify (graph : interferenceGraph) =
     let k = List.length temporaries
     let maximins = Map.fold (fun (mn,min,mxn,max as acc) name (deg,_) ->
@@ -83,7 +93,17 @@ let simplify (graph : interferenceGraph) =
                 else
                     aux newGraph ((minname,Spill,adjList)::stack) newMins                   
     aux graph [] (maximins ("",Int32.MaxValue,"",Int32.MinValue) graph)
-    
+   
+   
+let getUnusedRegister graph lst =
+    let toExclude = List.fold (fun acc node ->
+                       match Map.tryFind node graph with
+                       | None -> acc
+                       | Some col -> col :: acc) [] lst 
+    let l = List.except toExclude temporaries
+    if List.length l <> 0 then Some (List.head l) else None
+
+(* colours the graph from which stack was made*) 
 let rebuildAndColour stack =
     let rec aux s graph =
         match s with

@@ -1,7 +1,27 @@
 ﻿module Rename
 
 open Absyn
-open Utility
+
+let rec lookupInMap depth (name : string) m =
+    if depth >= 0 then
+        match Map.tryFind depth m with
+        | None -> lookupInMap (depth-1) name m
+        | Some vars ->                
+                let rec aux rest  = 
+                    match rest with
+                    |[] ->  lookupInMap (depth-1) name m 
+                    |(n:string)::xs -> if n.StartsWith(name) then n else aux xs
+                aux vars
+    else
+        failwith ("variable " + name + " not declared")
+  
+let addToMap depth name m =
+    match Map.tryFind depth m with
+    |None -> Map.add depth [name] m
+    |Some vars ->
+        let newlst = name::vars
+        Map.add depth newlst m
+        
 let rec rStmt stmt depth map counter tempCount =
     match stmt with
     | If(e, stmt1, stmt2) ->
@@ -16,7 +36,6 @@ let rec rStmt stmt depth map counter tempCount =
     | Expr e ->
         let ex, newTempCount1 = rExpr e depth map tempCount
         Expr(Temp(("/"+ string newTempCount1), ex)), counter, newTempCount1+1
-        //Expr ex, counter, newTempCount1
     | Block stmts ->
         let rec loop rest acc c tc =
             match rest with
@@ -75,7 +94,8 @@ and rExpr (e : expr) depth map tempCount =
             | [] -> List.rev acc, tc
             | r::res ->
                 let s, newTempCount1 = rExpr r depth map tc
-                loop res (s:: acc) newTempCount1 //args not in temp to avoid additional mov instructions
+                (*args not in temp to avoid additional mov instructions*)
+                loop res (s:: acc) newTempCount1 
         let exLst, newTempCount2 = loop lst [] tempCount
         Call (name,exLst), newTempCount2
         
