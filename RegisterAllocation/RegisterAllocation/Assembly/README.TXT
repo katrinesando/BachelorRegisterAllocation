@@ -44,7 +44,7 @@ ASSEMBLING, LINKING AND RUNNING COMPILED MICRO-C PROGRAMS
 Currently, linking and running the compiled Micro-C programs only works on either Linux or WSL.
 
 MacOS: NOT SUPPORTED
-Windows: NOT SUPPORTED
+Windows: NOT SUPPORTED (only with supported with WSL)
 
 ------
 
