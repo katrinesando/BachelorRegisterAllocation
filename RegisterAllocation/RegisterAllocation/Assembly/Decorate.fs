@@ -87,7 +87,6 @@ and aExpr (e : expr) lst =
 and aAccess access lst  =
   match access with
   | AccVar x            ->
-    //If is pointer then variable should stay alive for same amount of time as left side
       if List.contains x lst |> not
       then
         AccVar x, (x::lst)  //adds live variable to list

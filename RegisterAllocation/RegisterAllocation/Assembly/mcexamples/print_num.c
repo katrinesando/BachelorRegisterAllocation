@@ -1,11 +1,10 @@
-void main()
+void main(int n)
 {
-   int *a;
+   int a;
    int b;
-   b = 5;
-   a = &b;
-   print (*a);
-   int** c;
-   c = &a;
-   print(**c);
+   int c;
+   a = 1;
+   b = 2;
+   c= b+b;
+   print (a+b+c);
 }
