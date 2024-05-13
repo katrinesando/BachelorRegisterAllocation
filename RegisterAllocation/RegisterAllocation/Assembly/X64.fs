@@ -1,15 +1,14 @@
 ﻿module X64
 (* File Assembly/X64.fs
 
-   Instructions and assembly code emission for a x86 machine.
+   Instructions and assembly code emission for a x86-64 machine.
    sestoft@itu.dk * 2017-05-01
+   ahad@itu.dk, biha@itu.dk, and kmsa@itu.dk * 2024-05-15
 
    We use some aspects of Niels Kokholm's SML version (March 2002).
 
    This compiler takes a less template-based approach closer to the
    x86 spirit:
-
-   * We use 32 bit (aka double word) protected mode code.
 
    * Expressions are compiled to register-based code without use of
      the stack.
@@ -20,7 +19,7 @@
 
    * There is no optimized register allocation across expressions and statements. 
 
-   * We use all 32-bit registers of the x86-64 architecture.  
+   * We use all 64-bit registers of the x86-64 architecture.  
 
    * We use the native x86 call and ret instructions, which means that
      we must pust some prologue code at each function start to obey
@@ -28,8 +27,9 @@
      most important reason for splitting labels into ordinary labels
      and function entry point labels.  *)
 
-(* The MacOS and Windows linkers expect an underscore (_) before
-   external and global names, whereas the Linux/gcc linker does not. *)
+(* The MacOS and Windows linkers are not tested.
+   The Linux/gcc linker does not expect an underscore (_) before external and global names. *)
+
 open Utility
 let isLinux = true
 let prefix = if isLinux then "" else "_"
@@ -107,18 +107,18 @@ let x86instr2int out instr =
                                  "\tsub rsp, 16\n" +
                                  "\tmov rsi, rsp\n" +
                                  "\tmov rbp, rsp\n" +
-                                 "\tadd rbp, " + string(8*n) + "\t\t; 8*arity\n" + //4 originalt
+                                 "\tadd rbp, " + string(8*n) + "\t\t; 8*arity\n" + 
                                  lab + "_pro_1:\t\t\t; slide arguments\n" +
                                  "\tcmp rbp, rsi\n" +
                                  "\tjz " + lab + "_pro_2\n" +
-                                 "\tmov rcx, [rsi+16]\n" + //8 originalt
+                                 "\tmov rcx, [rsi+16]\n" +
                                  "\tmov [rsi], rcx\n" +
-                                 "\tadd rsi, 8\n" + //4 originalt
+                                 "\tadd rsi, 8\n" + 
                                  "\tjmp " + lab + "_pro_1\n" +
                                  lab + "_pro_2:\n" +
-                                 "\tsub rbp, 8\n" + //4 originalt
-                                 "\tmov [rbp+16], rax\n" + //8 originalt
-                                 "\tmov [rbp+8], rbx\n" + //4 originalt               
+                                 "\tsub rbp, 8\n" + 
+                                 "\tmov [rbp+16], rax\n" +
+                                 "\tmov [rbp+8], rbx\n" +                
                                    lab + "_tc:\t;end set up frame\n")
       | Ins ins               -> outins ins
       | Ins1 (ins, op1)       -> outins (ins + " " + operand op1)
@@ -139,19 +139,19 @@ let stdheader = ";; Prolog and epilog for 1-argument C function call (needed on 
                 "%macro call_prolog 0\n" +
                 "       mov rbx,rsp            ; Save pre-alignment stack pointer\n" +
                 "       pop rax                 ; Pop the argument\n" +
-                "       and rsp, 0xFFFFFFFFFFFFFFF0   ; Align rsp to 16 byte multiple\n" + //0xFFFFFFF0 originalt
-                "       sub rsp, 16             ; Pad 16 bytes\n" + //8 originalt - hvorfor paddes der helt præcist? den gør plads lige nu til nyt variables, men kan det også bare være 8?
+                "       and rsp, 0xFFFFFFFFFFFFFFF0   ; Align rsp to 16 byte multiple\n" +
+                "       sub rsp, 16             ; Pad 16 bytes\n" + 
                 "       push rbx                ; Push old stack top\n" +
                 "       push rax                ; Push argument again\n" +
                 "%endmacro\n" +
                 "\n" +
                 "%macro call_epilog 0\n" +
-                "       add rsp, 8              ; Pop argument\n" + //4 originalt
+                "       add rsp, 8              ; Pop argument\n" +
                 "       pop rbx                 ; Get saved pre-alignment stack pointer\n" +
                 "       mov rsp, rbx            ; Restore stack top to pre-alignment state\n" +
                 "%endmacro\n" +
                 "\n" +
-                "EXTERN " + printi + "\n" + //was EXTERN not GLOBAL
+                "EXTERN " + printi + "\n" + 
                 "EXTERN " + printc + "\n" +
                 "EXTERN " + checkargc + "\n" +
                 "GLOBAL " + asm_main + "\n" +
@@ -165,29 +165,29 @@ let beforeinit argc =
     "\tmov rbp, rsp ;new bp\n" +
     "\tmov qword [glovars], rsp\n" +
     "\t;check arg count:\n" +
-    "\tpush qword [rbp+16]\n" + //8 originalt
-    "\tpush rsi\n" + //aligns stackpointer to 16-byte boundary
+    "\tpush qword [rbp+16]\n" +
+    "\tpush rsi\n" +
     "\tmov rsi, rdi\n" +
     "\tmov rdi, " + string(argc)+"\n" +
     "\tcall " + checkargc + "\n" +
     "\tpop rsi\n"+
-    "\tadd rsp, 16\n" + //8 originalt
-    "\t; allocate globals:\n"// skal formentlig poppe ind i rsi/rdi for at få cmd-args tilbage
+    "\tadd rsp, 16\n" +
+    "\t; allocate globals:\n"
 
 
 let pushargs = "\t;set up command line arguments on stack:\n" +
                 "_args_next:\n" +
                 "\tcmp rdi, 0\n" + 
                 "\tjz _args_end\n" +
-                "\tpush qword [rsi]\n" + //push decrements rsp based on size of operand esi is 4-byte rsi is 8-byte
-                "\tadd rsi, 8\n" + //4 originalt - this means the array can only hold ints
-                "\tsub rdi, 1\n" + //was rcx
+                "\tpush qword [rsi]\n" +
+                "\tadd rsi, 8\n" +
+                "\tsub rdi, 1\n" +
                 "\tjmp _args_next           ;repeat until --rcx == 0\n" +
                 "_args_end:\n"
                
 let popargs =   "\t;clean up stuff pushed onto stack:\n" + 
                 "\tmov rsp, qword [glovars]\n" +
-                "\tadd rsp, 8\n" + //4 originalt
+                "\tadd rsp, 8\n" +
                 "\tmov rsp, rbp\n" +
                 "\tpop rbp\n" +
                 "\tret\n"
