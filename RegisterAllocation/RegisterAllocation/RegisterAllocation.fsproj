@@ -61,6 +61,12 @@
         <ClCompile Include="Assembly\mcexamples\stress_noalloc1.c" />
         <ClCompile Include="Assembly\mcexamples\stress_noalloc2.c" />
         <ClCompile Include="Assembly\mcexamples\simplePrim2ops.c" />
+        <Content Include="Assembly\LexAndParse\fsyacc.exe" />
+        <Content Include="Assembly\LexAndParse\fsyacc" />
+        <Content Include="Assembly\LexAndParse\FsLexYacc.Runtime.dll" />
+        <Content Include="Assembly\LexAndParse\fslex.exe" />
+        <Content Include="Assembly\LexAndParse\fslex" />
+        <Content Include="Assembly\LexAndParse\FSharp.Core.dll" />
     </ItemGroup>
 
 </Project>

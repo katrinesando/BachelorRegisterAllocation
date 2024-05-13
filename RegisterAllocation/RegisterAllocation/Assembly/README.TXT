@@ -14,8 +14,8 @@ B. To compile the nasm-generating micro-C compiler and use it.
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
    fsharpi -r FsLexYacc.Runtime.dll Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
-   dotnet fsi -r [path to FsLexYacc.Runtime.dll] Absyn.fs Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
-   Katrine:  dotnet fsi -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
+   dotnet fsi -r "./LexAndParse/FsLexYacc.Runtime.dll" Absyn.fs Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs
+   
 
    open ParseAndComp;;
    compileToFile (fromFile "mcexamples\print_num.c") "print_num.asm";;
@@ -30,11 +30,10 @@ C. Build a micro-C compiler (generating assembly code) as a command-line program
 
    fslex --unicode CLex.fsl
    fsyacc --module CPar CPar.fsy
-   fsharpc --standalone -r FsLexYacc.Runtime.dll  Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
-
-   fsc -r FsLexYacc.Runtime.dll  Absyn.fs CPar.fs CLex.fs Parse.fs X86.fs X86Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
-   fsc -r "C:\Users\sando\OneDrive\Dokumenter\1 Uni\5 semester\ProgrammerSomData\LexAndParse\FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe
-   microccasm print_num.c
+   
+   fsc --standalone -r "./LexAndParse/FSharp.Core.dll"" -r "./LexAndParse/FsLexYacc.Runtime.dll" Absyn.fs CPar.fs CLex.fs Allocate.fs Parse.fs X64.fs X64Comp.fs ParseAndComp.fs MicroCCAsm.fs -o microccasm.exe   
+   
+   ./microccasm mcexamples\ex11.c
 
 ----------------------------------------------------------------------
 
@@ -42,7 +41,7 @@ ASSEMBLING, LINKING AND RUNNING COMPILED MICRO-C PROGRAMS
 Currently, linking and running the compiled Micro-C programs only works on either Linux or WSL.
 
 MacOS: NOT SUPPORTED
-Windows: NOT SUPPORTED (only supported with WSL)
+Windows: NOT SUPPORTED (only supported on Windows with WSL)
 
 ------
 
