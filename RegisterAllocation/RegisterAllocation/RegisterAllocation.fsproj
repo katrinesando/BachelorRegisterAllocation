@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Content Include="ahad_biha_kmsa_RegisterAllocationOfMicroC.zip" />
       <Content Include="Assembly\README.md" />
       <Content Include="Assembly\GraphColouring\README.TXT" />
       <Compile Include="Assembly\GraphColouring\Absyn.fs" />
