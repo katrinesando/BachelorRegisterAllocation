@@ -26,7 +26,9 @@ void main() {
   print ia[9];                          // 114
   ipa[2] = p;                           // now ipa[2] points to i
   print ipa[2];                         // 2
+  
   print (&*ipa[2] == &**(ipa+2));       // 1 (true)
   iap = &ia;                            // now iap points to ia
   print (&(*iap)[2] == &*((*iap)+2));   // 1 (true)
+  
 }
