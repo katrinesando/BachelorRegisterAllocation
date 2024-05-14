@@ -20,14 +20,15 @@ let addVarToGraph name (graph : interferenceGraph) liveness =
     if Map.containsKey name graph then
         graph
     else
+        let newNode = node name
         let newLst = removeFromList liveness name
         let newGraph = List.fold (fun acc elem->
             match Map.tryFind elem acc with
             |Some (d,lst)->
-                if mem name lst then acc else Map.add elem (d+1,name::lst) acc
+                if mem newNode lst then acc else Map.add elem (d+1,newNode::lst) acc
             |None -> acc) graph newLst
         (*Uses newLst as the adjacency list of newNode*)
-        Map.add name (List.length newLst,newLst) newGraph
+        Map.add newNode (List.length newLst,newLst) newGraph
 
 (*Adds variables from liveness information annotated to dstmt to graph*)
 let rec graphFromDStmt dstmt graph =
